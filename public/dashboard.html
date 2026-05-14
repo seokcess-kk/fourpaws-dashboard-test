@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>장례 카테고리별 매출 대시보드 V4</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","Apple SD Gothic Neo","Noto Sans KR",sans-serif;background:#f5f6f8;color:#222}
+  .header{background:linear-gradient(135deg,#2c3e50 0%,#4a6688 100%);color:white;padding:18px 28px;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
+  .header h1{margin:0 0 4px;font-size:20px;font-weight:600}
+  .header .meta{font-size:12px;opacity:0.85}
+  .controls{background:#fff;border-bottom:1px solid #e1e4e8;padding:12px 28px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;position:sticky;top:0;z-index:10}
+  .tabs{display:flex;gap:4px}
+  .tab{padding:8px 16px;cursor:pointer;border:1px solid transparent;border-radius:6px;font-size:13px;font-weight:500;color:#4a5568;transition:all .15s}
+  .tab:hover{background:#f1f2f4}
+  .tab.active{background:#2c3e50;color:white}
+  .filter-group{display:flex;align-items:center;gap:8px;margin-left:auto}
+  .filter-group label{font-size:12px;color:#4a5568;font-weight:500}
+  select{padding:6px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:13px;background:#fff;cursor:pointer;min-width:120px}
+  .content{padding:20px 28px 60px}
+  .panel{display:none}
+  .panel.active{display:block}
+  .section-title{font-size:14px;font-weight:600;color:#2c3e50;margin:22px 0 10px;display:flex;align-items:center;gap:8px}
+  .section-title::before{content:"";display:inline-block;width:3px;height:14px;background:#3b82f6;border-radius:2px}
+  .section-title:first-child{margin-top:0}
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:#fff;padding:13px 15px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.04);border:1px solid #e7eaee}
+  .kpi .label{font-size:11px;color:#718096;font-weight:500;margin-bottom:4px;letter-spacing:0.3px}
+  .kpi .value{font-size:19px;font-weight:600;color:#2c3e50}
+  .kpi .sub{font-size:11px;color:#718096;margin-top:2px}
+  .grid{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:1280px){.grid.two{grid-template-columns:1fr 1fr}}
+  @media(min-width:1280px){.grid.three{grid-template-columns:1fr 1fr 1fr}}
+  .card{background:#fff;border-radius:8px;padding:14px 16px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);border:1px solid #e7eaee}
+  .card h3{margin:0 0 12px;font-size:13px;color:#2c3e50;font-weight:600}
+  .card h3 .sub{font-weight:400;color:#888;font-size:11px;margin-left:6px}
+  .chart-container{position:relative;height:300px}
+  .chart-container.tall{height:400px}
+  .chart-container.short{height:240px}
+  .footnote{margin-top:20px;font-size:11px;color:#888;line-height:1.6;background:#fff;padding:14px 16px;border-radius:8px;border-left:3px solid #fbbf24}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  table th,table td{padding:6px 8px;border-bottom:1px solid #eef0f3;text-align:right}
+  table th{background:#f8f9fa;font-weight:600;color:#4a5568;position:sticky;top:0}
+  table th:first-child,table td:first-child{text-align:left;font-weight:500}
+  .table-scroll{max-height:460px;overflow:auto}
+  .table-compact th,.table-compact td{padding:5px 6px;font-size:11.5px}
+  /* Matrix heatmap */
+  .matrix-table td.heat{text-align:center;font-weight:500}
+  .matrix-table td.heat.h0{background:#f8f9fa;color:#aaa}
+  .matrix-table td.heat.h1{background:#e6f0fb;color:#3b6db8}
+  .matrix-table td.heat.h2{background:#bfd5ed;color:#1a4f8c}
+  .matrix-table td.heat.h3{background:#7fa9d6;color:#fff}
+  .matrix-table td.heat.h4{background:#3b6db8;color:#fff}
+  .matrix-table td.heat.h5{background:#1a4f8c;color:#fff}
+  .matrix-table td.stone{background:#fef3c7;color:#92400e}
+  .stone-row{background:#fffbeb}
+  .badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;margin-left:4px}
+  .badge.good{background:#dcfce7;color:#166534}
+  .badge.warn{background:#fee2e2;color:#991b1b}
+  /* Top 5 podium */
+  .top5-title{font-size:15px;font-weight:600;color:#2c3e50;margin:0 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .top5-title .month-tag{font-weight:400;color:#888;font-size:12px}
+  .top5-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+  .top5-card{background:#fff;padding:14px 16px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.04);border:1px solid #e7eaee;position:relative;overflow:hidden}
+  .top5-card.rank1{background:linear-gradient(135deg,#fff9e6 0%,#fff 60%);border-left:4px solid #f59e0b}
+  .top5-card.rank2{background:linear-gradient(135deg,#f1f5f9 0%,#fff 60%);border-left:4px solid #94a3b8}
+  .top5-card.rank3{background:linear-gradient(135deg,#fff1e6 0%,#fff 60%);border-left:4px solid #c2410c}
+  .top5-card .rank{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:1px}
+  .top5-card.rank1 .rank{color:#d97706}
+  .top5-card.rank2 .rank{color:#64748b}
+  .top5-card.rank3 .rank{color:#b45309}
+  .top5-card .name{font-size:17px;font-weight:600;color:#2c3e50;margin:4px 0 6px}
+  .top5-card .aov{font-size:19px;font-weight:700;color:#3b82f6}
+  .top5-card .tx{font-size:11px;color:#888;margin-top:3px}
+  .top5-empty{color:#888;font-size:13px;padding:14px;background:#fff;border-radius:8px;border:1px dashed #cbd5e0;margin-bottom:20px}
+  /* Detail table */
+  .detail-tbl{font-size:11.5px}
+  .detail-tbl th,.detail-tbl td{padding:4px 6px;border:1px solid #e5e7eb}
+  .detail-tbl thead th{background:#374151;color:#fff;font-weight:600;text-align:center}
+  .detail-tbl .pkg-head{background:#3b82f6;color:#fff;font-weight:700;font-size:12px}
+  .detail-tbl .row-total{background:#f0f9ff;font-weight:600}
+  .detail-tbl .row-upsell{background:#fef3c7}
+  .detail-tbl .row-base{background:#f3f4f6;color:#666}
+  .detail-tbl .row-stone{background:#fce7f3}
+  .detail-tbl .row-item{}
+  .detail-tbl .col-total{background:#f0f9ff;font-weight:600}
+  .detail-tbl .col-pct{background:#fef3c7;font-weight:600;text-align:right}
+  .detail-tbl td{text-align:right}
+  .detail-tbl td.zero{color:#cbd5e0}
+  .detail-tbl td.lbl{text-align:left;font-weight:500}
+  .detail-tbl td.lbl-sub{text-align:left;padding-left:18px;color:#555}
+  .pkg-summary-tbl td.num{font-variant-numeric:tabular-nums}
+  .mgr-pkg-tbl td{font-variant-numeric:tabular-nums}
+  .mgr-pkg-tbl tr.mgr-row td{background:#1f2937;color:#fff;font-weight:600}
+  .mgr-pkg-tbl tr.mgr-total td{background:#dbeafe;font-weight:600}
+  /* Strength cards */
+  .str-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:20px}
+  .str-card{background:#fff;padding:14px 16px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05);border:1px solid #e7eaee;position:relative}
+  .str-card.r1{border-top:4px solid #f59e0b;background:linear-gradient(180deg,#fffbeb 0%,#fff 30%)}
+  .str-card.r2{border-top:4px solid #94a3b8;background:linear-gradient(180deg,#f8fafc 0%,#fff 30%)}
+  .str-card.r3{border-top:4px solid #c2410c;background:linear-gradient(180deg,#fff7ed 0%,#fff 30%)}
+  .str-card .head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .str-card .rank{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.5px}
+  .str-card.r1 .rank{color:#d97706}.str-card.r2 .rank{color:#64748b}.str-card.r3 .rank{color:#b45309}
+  .str-card .name{font-size:17px;font-weight:700;color:#1f2937}
+  .str-card .loc{font-size:11px;color:#888;margin-left:6px}
+  .str-card .aov-block{margin:8px 0 6px}
+  .str-card .aov-val{font-size:21px;font-weight:700;color:#3b82f6;font-variant-numeric:tabular-nums}
+  .str-card .aov-vs{font-size:11px;color:#888;margin-left:6px}
+  .str-card .aov-vs.pos{color:#16a34a;font-weight:600}.str-card .aov-vs.neg{color:#dc2626}
+  .str-card .tx{font-size:11px;color:#666;margin-bottom:8px}
+  .str-card .bars{display:flex;flex-direction:column;gap:5px;font-size:11px}
+  .str-card .bar-row{display:grid;grid-template-columns:60px 1fr 36px 32px;align-items:center;gap:6px}
+  .str-card .bar-lbl{color:#666}
+  .str-card .bar-bg{height:8px;background:#f1f5f9;border-radius:4px;position:relative;overflow:hidden}
+  .str-card .bar-fg{height:100%;background:#3b82f6;border-radius:4px}
+  .str-card .bar-avg{position:absolute;top:-2px;bottom:-2px;width:2px;background:#94a3b8}
+  .str-card .bar-val{font-variant-numeric:tabular-nums;font-weight:600;color:#1f2937;text-align:right}
+  .str-card .bar-gap{font-size:10px;font-weight:600;text-align:right}
+  .str-card .bar-gap.pos{color:#16a34a}.str-card .bar-gap.neg{color:#dc2626}.str-card .bar-gap.neu{color:#94a3b8}
+  .str-card .tags{margin-top:10px;display:flex;flex-wrap:wrap;gap:4px}
+  .str-card .tag{font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:12px;background:#fef3c7;color:#92400e}
+  .str-card .tag.balanced{background:#e5e7eb;color:#374151}
+  /* Comparison table heatmap */
+  .cmp-tbl{width:100%;font-size:12px;border-collapse:collapse}
+  .cmp-tbl thead th{background:#374151;color:#fff;font-weight:600;padding:8px 6px;position:sticky;top:0;cursor:pointer;user-select:none}
+  .cmp-tbl thead th:hover{background:#1f2937}
+  .cmp-tbl thead th.sorted-asc::after{content:" ↑"}
+  .cmp-tbl thead th.sorted-desc::after{content:" ↓"}
+  .cmp-tbl tbody td{padding:5px 6px;border-bottom:1px solid #eef0f3;text-align:right;font-variant-numeric:tabular-nums}
+  .cmp-tbl tbody td.lbl{text-align:left;font-weight:500}
+  .cmp-tbl tbody tr:hover td{background:#fef3c7}
+  .heat-pos5{background:#16a34a;color:#fff;font-weight:700}
+  .heat-pos4{background:#22c55e;color:#fff;font-weight:600}
+  .heat-pos3{background:#86efac;color:#14532d}
+  .heat-pos2{background:#bbf7d0;color:#14532d}
+  .heat-pos1{background:#dcfce7;color:#166534}
+  .heat-neu{background:#fff;color:#6b7280}
+  .heat-neg1{background:#fee2e2;color:#991b1b}
+  .heat-neg2{background:#fecaca;color:#991b1b}
+  .heat-neg3{background:#fca5a5;color:#7f1d1d}
+  .heat-neg4{background:#ef4444;color:#fff;font-weight:600}
+  .heat-neg5{background:#b91c1c;color:#fff;font-weight:700}
+  .insight-box{background:#f8fafc;border-left:4px solid #3b82f6;padding:10px 14px;font-size:12px;color:#1f2937;line-height:1.6;border-radius:0 6px 6px 0;margin-bottom:14px}
+  .nav-bar{background:#fff;padding:8px 16px;border-bottom:1px solid #e1e4e8;display:flex;align-items:center;gap:10px;font-size:12px}
+  .nav-bar a{color:#3b82f6;text-decoration:none;font-weight:500}
+  .nav-bar a:hover{text-decoration:underline}
+  .no-data{padding:40px;text-align:center;color:#666}
+  .no-data a{display:inline-block;margin-top:12px;padding:10px 20px;background:#3b82f6;color:#fff;text-decoration:none;border-radius:6px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="nav-bar"><a href="/">← 엑셀 업로드 화면으로</a><span style="color:#888">|</span><a href="javascript:void(0)" onclick="if(confirm('현재 데이터를 초기화하고 업로드 화면으로 돌아갑니다.')){sessionStorage.removeItem('__dash_data');location.href='/';}">데이터 초기화</a></div>
+<div class="header">
+  <h1>장례 카테고리별 매출 대시보드 V4</h1>
+  <div class="meta" id="metaInfo"></div>
+</div>
+<div class="controls">
+  <div class="tabs">
+    <div class="tab active" data-tab="monthly">Monthly</div>
+    <div class="tab" data-tab="package">Monthly_Package <span style="font-size:10px;opacity:0.7">(비중+업셀링)</span></div>
+    <div class="tab" data-tab="weekly">Weekly</div>
+    <div class="tab" data-tab="manager">Manager 객단가</div>
+  </div>
+  <div class="filter-group">
+    <label>지점:</label>
+    <select id="locFilter"></select>
+  </div>
+</div>
+<div class="content">
+
+<div id="panel-monthly" class="panel active">
+  <div class="kpi-row" id="mKpi"></div>
+
+  <div class="section-title">매출 추이 (월별)</div>
+  <div class="card"><div class="chart-container tall"><canvas id="m_total"></canvas></div></div>
+
+  <div class="section-title">매출 구성 분해</div>
+  <div class="grid two">
+    <div class="card"><h3>매출 구성 (장례 / 부가 / 무게추가) <span class="sub">stacked</span></h3>
+      <div class="chart-container"><canvas id="m_structure"></canvas></div></div>
+    <div class="card"><h3>부가서비스 세부 (추모스톤 / 추모봉안·산골 / 기타)</h3>
+      <div class="chart-container"><canvas id="m_addon"></canvas></div></div>
+  </div>
+
+  <div class="section-title">패키지별 매출 / 건수</div>
+  <div class="grid two">
+    <div class="card"><h3>패키지별 매출 (장례매출 기준)</h3>
+      <div class="chart-container"><canvas id="m_pkg_amt"></canvas></div></div>
+    <div class="card"><h3>패키지별 거래 건수</h3>
+      <div class="chart-container"><canvas id="m_pkg_cnt"></canvas></div></div>
+  </div>
+
+  <div class="section-title">건수 / 할인</div>
+  <div class="grid two">
+    <div class="card"><h3>장례 건수 (거래단위)</h3>
+      <div class="chart-container short"><canvas id="m_cnt"></canvas></div></div>
+    <div class="card"><h3>할인금액 추이</h3>
+      <div class="chart-container short"><canvas id="m_disc"></canvas></div></div>
+  </div>
+</div>
+
+<div id="panel-package" class="panel">
+  <div class="kpi-row" id="pKpi"></div>
+
+  <div class="section-title">1. 패키지 12개월 종합 요약 <span class="sub">(누적 거래수 / 매출 / 비중 / 객단가)</span></div>
+  <div class="card">
+    <div class="table-scroll" style="max-height:none">
+      <table class="table-compact pkg-summary-tbl" id="p_summary_tbl"></table>
+    </div>
+  </div>
+
+  <div class="section-title">2. 패키지 × 업셀링 발생 월별 상세 <span class="sub">(가격 차액 기반 / 거래수 기준)</span></div>
+  <div class="card">
+    <div class="table-scroll" style="max-height:700px;overflow:auto">
+      <table class="detail-tbl" id="p_detail_tbl"></table>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:8px">
+      ※ <b>업셀링 = 가격 차액 기반</b>: 라인아이템 가격이 패키지 기본가격(Table 시트 기준)을 초과하는 거래.<br>
+      ※ 분해: <b>총거래</b> / <b>업셀링 발생</b>(5품목 중 가격&gt;기본가 발생) / <b>기본만</b>(차액 없음) / <b>품목별 업셀링 발생 거래수</b> / <b>스톤 추가</b>(스톤 라인아이템 존재). <br>
+      ※ "업셀링 발생"은 5품목 기준 (관/요람장/수의/수의보/유골함). 스톤은 별도 (대부분 추모 부가서비스로 분류).
+    </div>
+  </div>
+
+  <div class="section-title">3. 패키지 × 7품목 업셀링 발생률 매트릭스 <span class="sub">(12개월 누적, 가격 차액 발생 기준 %)</span></div>
+  <div class="card">
+    <div class="table-scroll" style="max-height:none"><table class="matrix-table" id="p_matrix"></table></div>
+    <div style="font-size:11px;color:#888;margin-top:8px">
+      셀 색상: <span style="background:#f8f9fa;padding:2px 8px;color:#aaa">0%</span>
+      <span style="background:#e6f0fb;padding:2px 8px;color:#3b6db8;margin-left:4px">~25%</span>
+      <span style="background:#bfd5ed;padding:2px 8px;color:#1a4f8c;margin-left:4px">~50%</span>
+      <span style="background:#7fa9d6;padding:2px 8px;color:#fff;margin-left:4px">~75%</span>
+      <span style="background:#3b6db8;padding:2px 8px;color:#fff;margin-left:4px">~90%</span>
+      <span style="background:#1a4f8c;padding:2px 8px;color:#fff;margin-left:4px">90%+</span>
+      <span style="margin-left:14px">진한 색 = 해당 패키지에서 그 품목의 업셀링이 자주 발생함. 5품목은 가격 차액 기준.</span>
+    </div>
+  </div>
+
+  <div class="section-title">4. 업셀링 7품목 12개월 요약 <span class="sub">(업셀링 금액 = 가격 차액 합 / 발생 거래수 / 평균 발생률)</span></div>
+  <div class="card">
+    <div class="table-scroll"><table class="table-compact" id="u_table"></table></div>
+  </div>
+
+  <div class="section-title">5. 부가서비스 12개월 요약</div>
+  <div class="card">
+    <div class="table-scroll" style="max-height:400px"><table class="table-compact" id="add_table"></table></div>
+  </div>
+</div>
+
+<div id="panel-weekly" class="panel">
+  <div class="kpi-row" id="wKpi"></div>
+  <div class="section-title">주별 매출 추이</div>
+  <div class="card"><div class="chart-container tall"><canvas id="w_total"></canvas></div></div>
+  <div class="grid two" style="margin-top:14px">
+    <div class="card"><h3>주별 패키지별 매출 <span class="sub">stacked</span></h3>
+      <div class="chart-container"><canvas id="w_pkg"></canvas></div></div>
+    <div class="card"><h3>주별 거래수 & 할인</h3>
+      <div class="chart-container"><canvas id="w_cnt"></canvas></div></div>
+  </div>
+</div>
+
+<div id="panel-manager" class="panel">
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;padding:12px 14px;background:#fff;border-radius:8px;border:1px solid #e7eaee;flex-wrap:wrap">
+    <label style="font-size:13px;font-weight:600;color:#2c3e50">📅 분석 시점:</label>
+    <select id="strengthMonth" style="padding:6px 14px;border:1px solid #cbd5e0;border-radius:6px;font-size:13px;background:#fff;min-width:130px;font-weight:500"></select>
+    <button id="monthPrev" style="padding:5px 10px;border:1px solid #cbd5e0;background:#fff;border-radius:6px;cursor:pointer;font-size:12px">◀ 전월</button>
+    <button id="monthNext" style="padding:5px 10px;border:1px solid #cbd5e0;background:#fff;border-radius:6px;cursor:pointer;font-size:12px">다음월 ▶</button>
+    <button id="monthLatest" style="padding:5px 10px;border:1px solid #3b82f6;background:#3b82f6;color:#fff;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">최신월로</button>
+    <span style="font-size:11px;color:#888;margin-left:auto">선택한 월의 Top 5 지도사가 다른 지도사 대비 무엇을 잘하고 있는지 분석</span>
+  </div>
+
+  <div class="section-title">💎 <span id="strengthMonthLabel"></span> 객단가 Top 5 강점 분석 <span class="sub">(거래 3건 이상) · 지점: <span id="strengthLocLabel"></span></span></div>
+  <div style="font-size:11px;color:#666;background:#f8fafc;padding:8px 12px;border-radius:6px;margin-bottom:10px;line-height:1.5"><b>💡 정의</b> · <b>고가패키지</b> = 올인원/자연닮음/요람장/관장례 · <b>업셀링</b> = 5품목(관/요람장/수의/수의보/유골함) line item 가격이 <b>패키지 기본가격을 초과</b>한 거래 (가격 차액이 업셀링 금액) · <b>스톤 전환율</b> = 스톤 비번들 패키지(올인원 제외) 거래 중 스톤 추가 비율</div>
+  <div id="strengthInsight" class="insight-box"></div>
+  <div id="strengthContainer"></div>
+
+  <div class="section-title" style="margin-top:24px">📈 <span id="strengthTxMonthLabel"></span> 거래 건수 Top 5 지도사 강점 분석 <span class="sub">(가장 많이 상담한 지도사 · 지점: <span id="strengthTxLocLabel"></span>)</span></div>
+  <div id="strengthTxInsight" class="insight-box"></div>
+  <div id="strengthTxContainer"></div>
+
+  <div class="section-title" style="margin-top:24px">📊 객단가 vs 핵심 지표 산점도 <span class="sub">(각 점 = 1명의 지도사, 12개월 누적 / 추세선 표시)</span></div>
+  <div class="grid three">
+    <div class="card"><h3>고가패키지 비중 vs 객단가</h3>
+      <div class="chart-container"><canvas id="sc_premium"></canvas></div></div>
+    <div class="card"><h3>업셀링 추가율 vs 객단가</h3>
+      <div class="chart-container"><canvas id="sc_upsell"></canvas></div></div>
+    <div class="card"><h3>스톤 전환율 vs 객단가</h3>
+      <div class="chart-container"><canvas id="sc_stone"></canvas></div></div>
+  </div>
+
+  <div class="section-title" style="margin-top:24px">📋 <span id="cmpMonthLabel"></span> 전체 지도사 비교 표 <span class="sub">(컬럼 헤더 클릭으로 정렬 / 평균 대비 색상)</span></div>
+  <div class="card">
+    <div class="table-scroll" style="max-height:600px;overflow:auto">
+      <table class="cmp-tbl" id="cmpTable"></table>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:8px">
+      ※ 모든 비교는 <b>선택한 지점 내부 평균 기준</b> (지점 필터 '전체' 선택 시에만 전 지점 통합 평균). 색상: <span class="heat-pos3" style="padding:1px 8px">우위</span> <span class="heat-neu" style="padding:1px 8px;border:1px solid #ccc">평균</span> <span class="heat-neg3" style="padding:1px 8px">열위</span>. ±15%p 이상 차이는 더 진한 색.
+    </div>
+  </div>
+
+  
+  <div class="section-title" style="margin-top:24px">💎 <span id="stoneMonthLabel"></span> 매니저별 스톤 건수 <span class="sub">(스톤제작 / 스톤함 분리, 거래 3건+ 매니저 / 컬럼 헤더 클릭으로 정렬)</span></div>
+  <div class="card">
+    <div class="table-scroll" style="max-height:500px;overflow:auto">
+      <table class="cmp-tbl" id="stoneTable"></table>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:8px">
+      ※ <b>장례건수</b> = 해당 지도사의 월간 장례거래 총건수 (분모).
+      <b>스톤 객단가</b> = 스톤 라인아이템(제작+함) 매출 합계 / 스톤 발생 거래수(합계 any) — 스톤이 발생한 거래 1건당 평균 스톤 매출.
+      <b>스톤 전환율</b> = 스톤 비번들 패키지(올인원 제외) 거래 중 스톤 추가 비율.
+      <b>합계 (any)</b> = 스톤제작 OR 스톤함 둘 중 하나라도 발생한 거래수.
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:24px">🏛️ <span id="charnelMonthLabel"></span> 매니저별 봉안당 판매 건수 <span class="sub">(봉안당 신규/연장 분리, 거래 3건+ 매니저 / 컬럼 헤더 클릭으로 정렬)</span></div>
+  <div class="card">
+    <div class="table-scroll" style="max-height:500px;overflow:auto">
+      <table class="cmp-tbl" id="charnelTable"></table>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:8px">
+      ※ <b>장례건수</b> = 해당 지도사의 월간 장례거래 총건수 (분모).
+      <b>봉안 객단가</b> = 봉안 라인아이템(신규+연장) 매출 합계 / 봉안 발생 거래수(합계 any) — 봉안이 발생한 거래 1건당 평균 봉안 매출.
+      <b>봉안당신규/연장</b> = 매니저의 장례거래 안에 봉안당 line item이 포함된 건수 (추가 판매).
+      <b>참고</b>: 봉안당연장은 대부분 별도 추모전용 거래로 발생하여 장례거래와 잘 연결되지 않음 → 거의 0건 표시될 수 있음.
+    </div>
+  </div>
+<div class="section-title" style="margin-top:24px">📈 객단가 시계열 (기존)</div>
+  <div class="card"><h3>장례지도사별 객단가 추이 <span class="sub">월별 평균 거래액. 기본값: 거래 상위 15명. 필터로 조절</span></h3>
+    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;padding:10px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:220px;flex:1">
+        <label style="font-size:12px;font-weight:600;color:#2c3e50">📊 차트 표시 지도사 (Ctrl/Shift 다중선택)</label>
+        <select id="aovChartFilter" multiple size="6" style="padding:6px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;min-width:220px"></select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end;padding-bottom:2px">
+        <button id="aovChartReset" style="padding:5px 11px;border:1px solid #cbd5e0;background:#fff;border-radius:5px;cursor:pointer;font-size:12px">기본 (Top 15)</button>
+        <button id="aovChartAll" style="padding:5px 11px;border:1px solid #cbd5e0;background:#fff;border-radius:5px;cursor:pointer;font-size:12px">전체 선택</button>
+        <button id="aovChartClear" style="padding:5px 11px;border:1px solid #cbd5e0;background:#fff;border-radius:5px;cursor:pointer;font-size:12px">선택 해제</button>
+      </div>
+      <div style="font-size:11px;color:#666;align-self:center;max-width:280px;line-height:1.4">
+        ※ 선택한 지도사만 차트에 표시.<br>
+        ※ 거래 건수 내림차순 정렬, 옆 숫자는 총거래수.<br>
+        ※ 미선택 시 자동으로 Top 15 표시.
+      </div>
+    </div>
+    <div class="chart-container tall"><canvas id="mgr_aov"></canvas></div></div>
+  <div class="card" style="margin-top:14px"><h3>지도사별 월별 객단가 표</h3>
+    <div class="table-scroll"><table id="mgr_table"></table></div></div>
+
+  <div class="section-title" style="margin-top:24px">지도사별 월별 거래 상세 <span class="sub">(거래수 / 업셀링 발생 / 품목별 / 스톤 추가)</span></div>
+  <div id="mgrFilterPanel" style="background:#fff;padding:12px 14px;border-radius:8px;border:1px solid #e7eaee;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <label style="font-size:13px;font-weight:600;color:#2c3e50">🔍 지도사 필터</label>
+      <select id="mgrSortBy" style="padding:5px 8px;border:1px solid #cbd5e0;border-radius:5px;font-size:12px;background:#fff">
+        <option value="tx">거래수↓</option>
+        <option value="name">이름↑(가나다)</option>
+      </select>
+      <button id="mgrSelAll" style="padding:5px 10px;border:1px solid #3b82f6;background:#3b82f6;color:#fff;border-radius:5px;cursor:pointer;font-size:12px">현재 보이는 항목 전체 선택</button>
+      <button id="mgrClearAll" style="padding:5px 10px;border:1px solid #cbd5e0;background:#fff;border-radius:5px;cursor:pointer;font-size:12px">선택 해제</button>
+    </div>
+    <div id="mgrChipRow" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px"></div>
+    <div id="mgrCheckList" style="max-height:240px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:5px;padding:6px;background:#f8fafc;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:#666">
+      <span id="mgrSelCount">0명 선택 (미선택 시 전체 표시)</span>
+      <span>※ 초성(자음) 칩 클릭으로 필터링 — 미선택 시 전체 표시</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-scroll" style="max-height:none;overflow:auto">
+      <table class="detail-tbl mgr-pkg-tbl" id="mgr_pkg_table"></table>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:8px">
+      ※ <b>지도사 × 패키지별</b>로 세분화: 각 지도사가 진행한 패키지마다 (총거래/업셀링발생/품목별/기본만/스톤추가) 9행씩 표시.<br>
+      <b>패키지내%</b> = 해당 패키지 내 비중. 거래가 0인 패키지는 표시 생략. 패키지는 거래수 기준 내림차순.
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:24px">👥 Top vs Bot 매니저 고객 프로필 비교 <span class="sub">(지점 내 상위 1/3 vs 하위 1/3, 12개월 누적 · 지점 효과 제거)</span></div>
+  <div style="font-size:11px;color:#666;background:#f8fafc;padding:8px 12px;border-radius:6px;margin-bottom:10px;line-height:1.5"><b>💡 분석 의도</b> · 같은 지점 안에서 Top 매니저와 Bot 매니저의 고객층(연령/체중/품종/사망원인)이 다른지 확인 → 객단가 차이가 "고객 운"인지 "영업 능력"인지 판단</div>
+  <div id="cpInfoBox" class="insight-box" style="margin-bottom:12px"></div>
+  <div class="grid two">
+    <div class="card"><h3>📋 사망 원인 분포 (Top vs Bot)</h3>
+      <div class="table-scroll" style="max-height:350px"><table class="table-compact" id="cp_death"></table></div></div>
+    <div class="card"><h3>🐕 반려동물 체중 분포</h3>
+      <div class="table-scroll"><table class="table-compact" id="cp_weight"></table></div></div>
+    <div class="card"><h3>👤 보호자 연령대 분포</h3>
+      <div class="table-scroll"><table class="table-compact" id="cp_age"></table></div></div>
+    <div class="card"><h3>🐾 반려동물 품종 Top 10</h3>
+      <div class="table-scroll" style="max-height:350px"><table class="table-compact" id="cp_breed"></table></div></div>
+  </div>
+</div>
+
+<div class="footnote" id="footNote"></div>
+
+<div id="__no_data" class="no-data" style="display:none">
+  <h2 style="color:#2c3e50">📂 업로드된 데이터가 없습니다</h2>
+  <p>대시보드를 보려면 먼저 엑셀을 업로드해주세요.</p>
+  <a href="/">엑셀 업로드하러 가기</a>
+</div>
+<script>
+let DATA;
+function _runApp(){
+function _runApp(){
+const COLORS=['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1','#14b8a6','#a855f7','#0ea5e9','#dc2626','#22c55e'];
+const C=(i)=>COLORS[i%COLORS.length];
+const fmtKRW=(v)=>{if(v==null)return '-';if(Math.abs(v)>=100000000)return (v/100000000).toFixed(2)+'억';if(Math.abs(v)>=10000)return (v/10000).toFixed(0)+'만';return v.toLocaleString();};
+const fmtN=(v)=>v==null?'-':v.toLocaleString();
+const fmtPct=(v)=>v==null?'-':v.toFixed(1)+'%';
+const sum=(a)=>a.reduce((x,y)=>x+(y||0),0);
+const safeDiv=(a,b)=>b===0?0:a/b;
+function heatClass(p){if(p===0)return'h0';if(p<25)return'h1';if(p<50)return'h2';if(p<75)return'h3';if(p<90)return'h4';return'h5';}
+
+let curTab='monthly', curLoc='전체';
+const charts={};
+
+document.getElementById('metaInfo').textContent=
+  `데이터 기간: ${DATA.meta.date_range} · 거래 ${DATA.meta.total_transactions.toLocaleString()}건 · 생성: ${DATA.meta.generated_at.slice(0,16).replace('T',' ')}`;
+document.getElementById('footNote').innerHTML=
+  '※ <strong>원본</strong>: 2.장례 카테고리별 매출 현황_2025FY_FP&A_250716_Raw_Data.xlsx (Raw 시트). 거래단위(t_unique_flag=1) + 라인아이템 단위 병용 집계.<br>'+
+  '※ <strong>장례 거래</strong> = package 값이 있는 거래 (총 거래 중 추모 전용(봉안당/스톤만/산골만 등) 제외). <strong>패키지 비중</strong> 분모로 사용.<br>'+
+  '※ <strong>패키지별 업셀링 발생</strong> = 해당 패키지 거래에 5품목(관/요람장/수의/수의보/유골함) 중 하나라도 <b>패키지 기본가격을 초과한 가격</b>으로 결제된 경우 (가격 차액이 업셀링 금액). 스톤은 대부분 추모 부가서비스로 분류되어 별도 트래킹. '+
+  '<strong>주의</strong>: 올인원/자연닮음/요람장/관장례 패키지는 일부 품목을 표준으로 포함하므로 발생률이 ~100%로 나옴. '+
+  '실제 "추가 업셀링" 의미는 매트릭스에서 옅은 색 셀(낮은 추가율) 항목으로 해석. <strong>기본화장</strong> 패키지는 표준 항목이 없어 binary 구분이 명확함.<br>'+
+  '※ <strong>패키지 × 7품목 매트릭스</strong> 셀 값 = 해당 패키지 거래 중 해당 품목이 포함된 거래수 / 해당 패키지 총 거래수 (12개월 누적).<br>'+
+  '※ <strong>스톤 추가율</strong> = 해당 패키지 거래 중 스톤제작 or 스톤함 라인아이템이 포함된 거래수 / 패키지 거래수.';
+
+const sel=document.getElementById('locFilter');
+DATA.locations.forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l;sel.appendChild(o);});
+sel.value=curLoc;
+sel.onchange=e=>{curLoc=e.target.value;render();};
+
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+    curTab=t.dataset.tab; render();
+  };
+});
+
+function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function lineChart(id,labels,datasets,opts){
+  destroy(id);opts=opts||{};
+  charts[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${opts.fmt?opts.fmt(c.parsed.y):fmtKRW(c.parsed.y)}`}}},
+      scales:{y:{beginAtZero:opts.beginZero!==false,ticks:{callback:v=>opts.fmt?opts.fmt(v):fmtKRW(v),font:{size:11}}},
+        x:{ticks:{font:{size:11},maxRotation:45,autoSkip:true,maxTicksLimit:opts.maxX||20}}}}});
+}
+function barChart(id,labels,datasets,stacked,opts){
+  destroy(id);opts=opts||{};
+  charts[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${opts.fmt?opts.fmt(c.parsed.y):fmtKRW(c.parsed.y)}`}}},
+      scales:{y:{beginAtZero:true,stacked,ticks:{callback:v=>opts.fmt?opts.fmt(v):fmtKRW(v),font:{size:11}}},
+        x:{stacked,ticks:{font:{size:11},maxRotation:45,autoSkip:true,maxTicksLimit:opts.maxX||20}}}}});
+}
+function kpi(label,value,sub){return `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;}
+
+function renderMonthly(){
+  const m=DATA.monthly, d=m.by_location[curLoc];
+  if(!d)return;
+  const L=m.periods;
+  const T=sum(d.amt_total),F=sum(d.amt_장례),B=sum(d.amt_부가);
+  const W=sum(d.amt_무게추가),DISC=sum(d['할인금액']);
+  const TX=sum(d.tx_count),FTX=sum(d.funeral_tx_count);
+  let upTot=0;DATA.upsell_items.forEach(it=>{upTot+=sum(d.upsell_amt[it]);});
+  document.getElementById('mKpi').innerHTML=
+    kpi('총매출',fmtKRW(T))+
+    kpi('장례매출',fmtKRW(F),`${(F/T*100).toFixed(1)}%`)+
+    kpi('부가매출',fmtKRW(B),`${(B/T*100).toFixed(1)}%`)+
+    kpi('업셀링 매출 합계',fmtKRW(upTot))+
+    kpi('할인합계',fmtKRW(DISC))+
+    kpi('전체 거래수',fmtN(TX))+
+    kpi('장례 거래수',fmtN(FTX),'(추모전용 제외)')+
+    kpi('평균객단가',fmtKRW(Math.round(safeDiv(T,TX))));
+
+  lineChart('m_total',L,[
+    {label:'총매출',data:d.amt_total,borderColor:C(0),backgroundColor:C(0)+'22',fill:true,tension:0.3,borderWidth:2},
+    {label:'장례매출',data:d.amt_장례,borderColor:C(1),tension:0.3,borderWidth:2,backgroundColor:'transparent'},
+    {label:'부가매출',data:d.amt_부가,borderColor:C(2),tension:0.3,borderWidth:2,backgroundColor:'transparent'},
+  ]);
+  barChart('m_structure',L,[
+    {label:'장례매출',data:d.amt_장례,backgroundColor:C(0)},
+    {label:'부가매출',data:d.amt_부가,backgroundColor:C(2)},
+    {label:'무게추가',data:d.amt_무게추가,backgroundColor:C(4)},
+  ],true);
+  barChart('m_addon',L,[
+    {label:'추모(스톤)',data:d.amt_부가_스톤,backgroundColor:C(1)},
+    {label:'추모(봉안)',data:d.amt_부가_봉안,backgroundColor:C(2)},
+    {label:'기타 부가',data:d.amt_부가_etc,backgroundColor:C(3)},
+  ],true);
+  barChart('m_pkg_amt',L,DATA.package_list.map((p,i)=>({
+    label:p,data:d.package_amt[p],backgroundColor:C(i)
+  })),true);
+  barChart('m_pkg_cnt',L,DATA.package_list.map((p,i)=>({
+    label:p,data:d.package_cnt[p],backgroundColor:C(i)
+  })),true,{fmt:fmtN});
+  lineChart('m_cnt',L,[
+    {label:'장례건수',data:d.cnt_funeral,borderColor:C(0),tension:0.3,borderWidth:2}
+  ],{fmt:fmtN});
+  barChart('m_disc',L,[
+    {label:'할인금액',data:d['할인금액'],backgroundColor:C(3)}
+  ],false);
+}
+
+function renderPackage(){
+  const m=DATA.monthly, d=m.by_location[curLoc];
+  if(!d)return;
+  const L=m.periods;
+  const lastIdx=L.length-1;
+
+  // KPIs
+  let basicTot=sum(d.package_cnt['기본화장']);
+  let basicUpsell=sum(d.pkg_with_upsell_count['기본화장']);
+  let basicRate=basicTot>0?(basicUpsell/basicTot*100):0;
+  let topPkg='-',topPct=0;
+  let lastFunTx=d.funeral_tx_count[lastIdx];
+  DATA.package_list.forEach(p=>{
+    const cnt=d.package_cnt[p][lastIdx];
+    const pct=lastFunTx>0?cnt/lastFunTx*100:0;
+    if(pct>topPct){topPct=pct;topPkg=p;}
+  });
+  document.getElementById('pKpi').innerHTML=
+    kpi('장례 거래 총합',fmtN(sum(d.funeral_tx_count)))+
+    kpi('전체 거래 총합',fmtN(sum(d.tx_count)),'추모전용 포함')+
+    kpi('기본화장 업셀링률 (누적)',fmtPct(basicRate),`${basicUpsell}/${basicTot}`)+
+    kpi('기본화장 base only (누적)',fmtN(basicTot-basicUpsell))+
+    kpi(`최근달(${L[lastIdx]}) 1위 패키지`,topPkg,fmtPct(topPct))+
+    kpi('스톤 전체 추가 (누적)',fmtN(DATA.package_list.reduce((s,p)=>s+sum(d.pkg_stone_count[p]),0)));
+
+  // === 1. 패키지 12개월 종합 요약 표 ===
+  const totFunTx=sum(d.funeral_tx_count);
+  const totPkgAmt=sum(d.pkg_amt_total);
+  let s='<thead><tr><th>패키지</th><th>거래수</th><th>건수비중</th><th>매출</th><th>매출비중</th><th>평균 객단가</th><th>업셀링 발생</th><th>업셀링률</th><th>스톤 추가</th><th>스톤률</th></tr></thead><tbody>';
+  DATA.package_list.forEach(p=>{
+    const cnt=sum(d.package_cnt[p]);
+    const amt=sum(d.package_amt[p]);
+    const wu=sum(d.pkg_with_upsell_count[p]);
+    const stn=sum(d.pkg_stone_count[p]);
+    const cntPct=totFunTx>0?cnt/totFunTx*100:0;
+    const amtPct=totPkgAmt>0?amt/totPkgAmt*100:0;
+    const aov=cnt>0?Math.round(amt/cnt):0;
+    const ur=cnt>0?wu/cnt*100:0;
+    const sr=cnt>0?stn/cnt*100:0;
+    s+=`<tr><td class="lbl"><b>${p}</b></td><td class="num">${fmtN(cnt)}</td><td class="num">${cntPct.toFixed(1)}%</td><td class="num">${fmtKRW(amt)}</td><td class="num">${amtPct.toFixed(1)}%</td><td class="num">${fmtKRW(aov)}</td><td class="num">${fmtN(wu)}</td><td class="num">${ur.toFixed(1)}%</td><td class="num">${fmtN(stn)}</td><td class="num">${sr.toFixed(1)}%</td></tr>`;
+  });
+  // Total row
+  const allCnt=DATA.package_list.reduce((a,p)=>a+sum(d.package_cnt[p]),0);
+  const allAmt=DATA.package_list.reduce((a,p)=>a+sum(d.package_amt[p]),0);
+  const allWu=DATA.package_list.reduce((a,p)=>a+sum(d.pkg_with_upsell_count[p]),0);
+  const allStn=DATA.package_list.reduce((a,p)=>a+sum(d.pkg_stone_count[p]),0);
+  s+=`<tr style="background:#dbeafe;font-weight:700"><td class="lbl">합계</td><td class="num">${fmtN(allCnt)}</td><td class="num">100.0%</td><td class="num">${fmtKRW(allAmt)}</td><td class="num">100.0%</td><td class="num">${fmtKRW(allCnt>0?Math.round(allAmt/allCnt):0)}</td><td class="num">${fmtN(allWu)}</td><td class="num">${allCnt>0?(allWu/allCnt*100).toFixed(1):0}%</td><td class="num">${fmtN(allStn)}</td><td class="num">${allCnt>0?(allStn/allCnt*100).toFixed(1):0}%</td></tr>`;
+  s+='</tbody>';
+  document.getElementById('p_summary_tbl').innerHTML=s;
+
+  // === 2. 패키지 × 업셀링 발생 월별 상세 표 ===
+  // 5 items (excluding stones), per package, multiple sub-rows per package
+  const UP5=['관','요람장','수의','수의보','유골함'];
+  let dt='<thead><tr><th rowspan="2">패키지</th><th rowspan="2">구분</th>';
+  L.forEach(l=>dt+=`<th>${l.slice(2)}</th>`);
+  dt+='<th rowspan="2">누적</th><th rowspan="2">비중%</th></tr><tr></tr></thead><tbody>';
+  DATA.package_list.forEach(p=>{
+    const tot=sum(d.package_cnt[p]);
+    if(tot===0){
+      dt+=`<tr class="row-total"><td class="lbl pkg-head" rowspan="1">${p}</td><td class="lbl">총거래</td>`;
+      L.forEach(_=>dt+='<td class="zero">-</td>');
+      dt+='<td class="col-total">0</td><td class="col-pct">-</td></tr>';
+      return;
+    }
+    // Calculate "업셀링 발생" using only 5 items (no stones)
+    // Need to compute: per period, how many tx in this pkg have any of UP5
+    // We don't have this pre-computed. Approximate by pkg_with_upsell_count which uses all 7.
+    // But we DO have pkg_x_item_count[p][it][i] for each of 7 items.
+    // 5-item upsell count per month = number of tx with at least one of UP5
+    // We don't have this exactly. Use union approximation:
+    //   ≥ max(pkg_x_item_count[p][it][i] for it in UP5)
+    //   ≤ sum(pkg_x_item_count[p][it][i] for it in UP5)
+    // For now, we'll use pkg_with_upsell_count[p] (which includes stones) and note it.
+    // To be accurate, request data update later.
+    const total=d.package_cnt[p];
+    const upsellAny=d.pkg_with_upsell_count[p];  // includes stones
+    const baseOnly=d.pkg_basic_only_count[p];
+    const stoneCnt=d.pkg_stone_count[p];
+
+    // 총거래
+    dt+=`<tr class="row-total"><td class="lbl pkg-head" rowspan="${UP5.length+4}">${p}</td><td class="lbl">총거래</td>`;
+    L.forEach((_,i)=>dt+=`<td>${total[i]||'-'}</td>`);
+    dt+=`<td class="col-total">${fmtN(tot)}</td><td class="col-pct">100%</td></tr>`;
+    // 업셀링 발생 (any of 7 - includes stones)
+    dt+=`<tr class="row-upsell"><td class="lbl">업셀링 발생</td>`;
+    L.forEach((_,i)=>dt+=`<td>${upsellAny[i]||'-'}</td>`);
+    const upTot=sum(upsellAny);
+    dt+=`<td class="col-total">${fmtN(upTot)}</td><td class="col-pct">${(upTot/tot*100).toFixed(1)}%</td></tr>`;
+    // 업셀링 품목별 (업셀링 발생 바로 아래에 배치)
+    UP5.forEach(it=>{
+      const arr=d.pkg_x_item_count[p][it];
+      dt+=`<tr class="row-item"><td class="lbl-sub">└ ${it}</td>`;
+      L.forEach((_,i)=>{const v=arr[i];dt+=v>0?`<td>${v}</td>`:'<td class="zero">-</td>';});
+      const itTot=sum(arr);
+      dt+=`<td class="col-total">${fmtN(itTot)}</td><td class="col-pct">${(itTot/tot*100).toFixed(1)}%</td></tr>`;
+    });
+    // 기본만 (미업셀링)
+    dt+=`<tr class="row-base"><td class="lbl">기본만 (미업셀링)</td>`;
+    L.forEach((_,i)=>dt+=`<td>${baseOnly[i]||'-'}</td>`);
+    const bTot=sum(baseOnly);
+    dt+=`<td class="col-total">${fmtN(bTot)}</td><td class="col-pct">${(bTot/tot*100).toFixed(1)}%</td></tr>`;
+    // 스톤 추가
+    dt+=`<tr class="row-stone"><td class="lbl">스톤 추가 (any)</td>`;
+    L.forEach((_,i)=>dt+=`<td>${stoneCnt[i]||'-'}</td>`);
+    const sTot=sum(stoneCnt);
+    dt+=`<td class="col-total">${fmtN(sTot)}</td><td class="col-pct">${(sTot/tot*100).toFixed(1)}%</td></tr>`;
+  });
+  dt+='</tbody>';
+  document.getElementById('p_detail_tbl').innerHTML=dt;
+
+  // === 3. 매트릭스 (12개월 누적) - 기존과 동일 ===
+  let mh='<thead><tr><th>패키지</th><th>거래수</th>';
+  DATA.upsell_items.forEach(it=>{mh+=`<th>${it}</th>`;});
+  mh+='<th>스톤 업셀링</th><th>업셀링(any)</th><th>base only</th></tr></thead><tbody>';
+  DATA.package_list.forEach(p=>{
+    const tot=sum(d.package_cnt[p]);
+    if(tot===0){mh+=`<tr><td>${p}</td><td>0</td>`;DATA.upsell_items.forEach(_=>mh+='<td class="heat h0">-</td>');mh+='<td colspan="3">-</td></tr>';return;}
+    mh+=`<tr><td><strong>${p}</strong></td><td>${fmtN(tot)}</td>`;
+    DATA.upsell_items.forEach(it=>{
+      const cnt=sum(d.pkg_x_item_count[p][it]);
+      const pct=cnt/tot*100;
+      const cls=heatClass(pct);
+      mh+=`<td class="heat ${cls}" title="${cnt}건 / ${tot}건">${pct.toFixed(1)}%<br><span style="font-size:9px;opacity:0.7">${fmtN(cnt)}</span></td>`;
+    });
+    const stoneCnt=sum(d.pkg_stone_count[p]);
+    const upsellCnt=sum(d.pkg_with_upsell_count[p]);
+    const baseCnt=sum(d.pkg_basic_only_count[p]);
+    mh+=`<td class="stone"><strong>${(stoneCnt/tot*100).toFixed(1)}%</strong><br><span style="font-size:9px">${fmtN(stoneCnt)}</span></td>`;
+    mh+=`<td><strong>${(upsellCnt/tot*100).toFixed(1)}%</strong><br><span style="font-size:9px;color:#888">${fmtN(upsellCnt)}</span></td>`;
+    mh+=`<td><strong>${(baseCnt/tot*100).toFixed(1)}%</strong><br><span style="font-size:9px;color:#888">${fmtN(baseCnt)}</span></td>`;
+    mh+='</tr>';
+  });
+  mh+='</tbody>';
+  document.getElementById('p_matrix').innerHTML=mh;
+
+  // === 4. 업셀링 7품목 12개월 요약 표 ===
+  let uh='<thead><tr><th>품목</th><th>업셀링 금액(12개월)</th><th>발생 거래수(12개월)</th><th>평균 발생률</th>';
+  L.forEach(l=>uh+=`<th>${l.slice(2)}<br><span style="font-weight:400;color:#888;font-size:10px">금액/건수</span></th>`);
+  uh+='</tr></thead><tbody>';
+  DATA.upsell_items.forEach(it=>{
+    const tA=sum(d.upsell_amt[it]),tC=sum(d.upsell_cnt[it]);
+    const avgAt=d.upsell_attach[it].reduce((a,b)=>a+b,0)/L.length;
+    uh+=`<tr><td>${it}</td><td>${fmtKRW(tA)}</td><td>${fmtN(tC)}</td><td>${avgAt.toFixed(1)}%</td>`;
+    L.forEach((_,i)=>{
+      const a=d.upsell_amt[it][i],c=d.upsell_cnt[it][i];
+      uh+=`<td><span style="color:#3b82f6">${a?fmtKRW(a):'-'}</span><br><span style="color:#888;font-size:10px">${c||'-'}</span></td>`;
+    });
+    uh+='</tr>';
+  });
+  uh+='</tbody>';
+  document.getElementById('u_table').innerHTML=uh;
+
+  // === 5. 부가서비스 요약 ===
+  let ah='<thead><tr><th>구분</th><th>품목</th><th>매출</th><th>건수</th></tr></thead><tbody>';
+  ['스톤제작','스톤함'].forEach(it=>{ah+=`<tr><td>추모(스톤)</td><td>${it}</td><td>${fmtKRW(sum(d.memorial_stone[it].amt))}</td><td>${fmtN(sum(d.memorial_stone[it].cnt))}</td></tr>`;});
+  DATA.memorial_burial_items.forEach(it=>{ah+=`<tr><td>추모(봉안/산골)</td><td>${it}</td><td>${fmtKRW(sum(d.memorial_burial[it].amt))}</td><td>${fmtN(sum(d.memorial_burial[it].cnt))}</td></tr>`;});
+  DATA.etc_add_items.forEach(it=>{ah+=`<tr><td>기타</td><td>${it}</td><td>${fmtKRW(sum(d.etc_add[it].amt))}</td><td>${fmtN(sum(d.etc_add[it].cnt))}</td></tr>`;});
+  ah+='</tbody>';
+  document.getElementById('add_table').innerHTML=ah;
+}
+
+function renderWeekly(){
+  const m=DATA.weekly,d=m.by_location[curLoc];
+  if(!d)return;
+  const L=m.periods;const TX=sum(d.tx_count);
+  document.getElementById('wKpi').innerHTML=
+    kpi('주간 평균 매출',fmtKRW(Math.round(sum(d.amt_total)/L.length)))+
+    kpi('주간 최고 매출',fmtKRW(Math.max(...d.amt_total)))+
+    kpi('주간 평균 거래',fmtN(Math.round(TX/L.length)))+
+    kpi('총 주 수',fmtN(L.length));
+  lineChart('w_total',L,[
+    {label:'총매출',data:d.amt_total,borderColor:C(0),backgroundColor:C(0)+'22',fill:true,tension:0.3,borderWidth:2},
+    {label:'장례매출',data:d.amt_장례,borderColor:C(1),tension:0.3,borderWidth:2,backgroundColor:'transparent'},
+    {label:'부가매출',data:d.amt_부가,borderColor:C(2),tension:0.3,borderWidth:2,backgroundColor:'transparent'},
+  ],{maxX:25});
+  barChart('w_pkg',L,DATA.package_list.map((p,i)=>({
+    label:p,data:d.package_amt[p],backgroundColor:C(i)
+  })),true,{maxX:25});
+  destroy('w_cnt');
+  charts['w_cnt']=new Chart(document.getElementById('w_cnt'),{
+    type:'bar',data:{labels:L,datasets:[
+      {label:'거래수',data:d.tx_count,backgroundColor:C(0),yAxisID:'y1'},
+      {label:'할인금액',data:d['할인금액'],type:'line',borderColor:C(3),tension:0.3,yAxisID:'y2',backgroundColor:'transparent',borderWidth:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},
+      scales:{y1:{position:'left',ticks:{callback:v=>fmtN(v),font:{size:11}}},
+        y2:{position:'right',ticks:{callback:v=>fmtKRW(v),font:{size:11}},grid:{drawOnChartArea:false}},
+        x:{ticks:{font:{size:11},maxRotation:45,autoSkip:true,maxTicksLimit:25}}}}});
+}
+
+function renderManager(){
+  const m=DATA.manager_aov,d=m.by_location[curLoc];
+  if(!d||!d.managers||d.managers.length===0){
+    destroy('mgr_aov');
+    document.getElementById('mgr_table').innerHTML='<tr><td>해당 지점 데이터 없음</td></tr>';
+    document.getElementById('strengthContainer').innerHTML='<div class="top5-empty">해당 지점에 지도사 데이터가 없습니다</div>';
+    return;
+  }
+  const L=m.periods;
+
+  const tot=d.managers.map(mg=>({mg,total:sum(d.data[mg].tx)}));
+  tot.sort((a,b)=>b.total-a.total);
+
+  // === AOV 차트 필터 옵션 채우기 ===
+  const aovFilterEl=document.getElementById('aovChartFilter');
+  // 지점이 바뀌면 필터 초기화
+  if(window._aovChartLoc!==curLoc){
+    window._aovChartLoc=curLoc;
+    window._aovChartSelected=null; // null = 기본(Top 15)
+  }
+  const prevSelected=window._aovChartSelected;
+  aovFilterEl.innerHTML='';
+  tot.forEach(({mg,total})=>{
+    const opt=document.createElement('option');
+    opt.value=mg; opt.textContent=`${mg} (${fmtN(total)}건)`;
+    if(prevSelected && prevSelected.includes(mg))opt.selected=true;
+    aovFilterEl.appendChild(opt);
+  });
+
+  // 표시할 지도사 결정: 사용자가 선택한 게 있으면 그것, 없으면 Top 15
+  const drawList=(prevSelected && prevSelected.length>0)
+    ? prevSelected.filter(mg=>d.data[mg])
+    : tot.slice(0,15).map(x=>x.mg);
+
+  lineChart('mgr_aov',L,drawList.map((mg,i)=>({
+    label:mg,data:d.data[mg].aov,borderColor:C(i),tension:0.3,borderWidth:2,spanGaps:true,pointRadius:2,backgroundColor:'transparent'
+  })));
+
+  // 필터 핸들러 (1회만 바인딩)
+  if(!aovFilterEl._bound){
+    aovFilterEl._bound=true;
+    aovFilterEl.onchange=()=>{
+      const sel=Array.from(aovFilterEl.selectedOptions).map(o=>o.value);
+      window._aovChartSelected=sel.length>0?sel:null;
+      if(curTab==='manager')renderManager();
+    };
+    document.getElementById('aovChartReset').onclick=()=>{
+      window._aovChartSelected=null;
+      if(curTab==='manager')renderManager();
+    };
+    document.getElementById('aovChartAll').onclick=()=>{
+      window._aovChartSelected=tot.map(x=>x.mg);
+      if(curTab==='manager')renderManager();
+    };
+    document.getElementById('aovChartClear').onclick=()=>{
+      window._aovChartSelected=null;
+      Array.from(aovFilterEl.options).forEach(o=>o.selected=false);
+      if(curTab==='manager')renderManager();
+    };
+  }
+  let html='<thead><tr><th>지도사</th><th>총거래</th>';
+  L.forEach(l=>html+=`<th>${l.slice(2)}</th>`);
+  html+='</tr></thead><tbody>';
+  tot.forEach(({mg,total})=>{
+    html+=`<tr><td>${mg}</td><td>${fmtN(total)}</td>`;
+    d.data[mg].aov.forEach(v=>html+=`<td>${v==null?'-':fmtKRW(v)}</td>`);
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  document.getElementById('mgr_table').innerHTML=html;
+
+  // === 지도사 필터: 검색 + 자음 + 체크박스 (성능 최적화) ===
+  const CHOSUNG_LIST = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  const CHOSUNG_GROUP = {'ㄱ':['ㄱ','ㄲ'],'ㄲ':['ㄱ','ㄲ'],'ㄷ':['ㄷ','ㄸ'],'ㄸ':['ㄷ','ㄸ'],'ㅂ':['ㅂ','ㅃ'],'ㅃ':['ㅂ','ㅃ'],'ㅅ':['ㅅ','ㅆ'],'ㅆ':['ㅅ','ㅆ'],'ㅈ':['ㅈ','ㅉ'],'ㅉ':['ㅈ','ㅉ']};
+  function getChosung(ch){
+    const code=ch.charCodeAt(0);
+    if(code>=0xAC00 && code<=0xD7A3) return CHOSUNG_LIST[Math.floor((code-0xAC00)/(21*28))];
+    if(code>=0x3131 && code<=0x314E) return ch;
+    return ch.toLowerCase();
+  }
+  function nameToChosung(name){let s='';for(let i=0;i<name.length;i++)s+=getChosung(name[i]);return s;}
+
+  if(!window._mgrFilterSelected)window._mgrFilterSelected=[];
+  if(!window._mgrFilterChip)window._mgrFilterChip='ALL';
+  if(!window._mgrFilterSort)window._mgrFilterSort='tx';
+
+  // === Chip 버튼 (한 번만 빌드) ===
+  const usedChosung=new Set();
+  tot.forEach(({mg})=>usedChosung.add(getChosung(mg.charAt(0))));
+  const displayChips=['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  const chipRow=document.getElementById('mgrChipRow');
+  chipRow.innerHTML='';
+  function _chipStyle(active,enabled){
+    return 'padding:4px 10px;border:1px solid '+(active?'#3b82f6':'#cbd5e0')+
+      ';background:'+(active?'#3b82f6':(enabled?'#fff':'#f1f5f9'))+
+      ';color:'+(active?'#fff':(enabled?'#2c3e50':'#cbd5e0'))+
+      ';border-radius:14px;cursor:'+(enabled?'pointer':'not-allowed')+
+      ';font-size:11px;font-weight:'+(active?'600':'500');
+  }
+  const _chips=[];
+  function _mkChip(label,key,enabled){
+    const b=document.createElement('button');
+    b.textContent=label; b.dataset.chip=key; b.disabled=!enabled;
+    b.style.cssText=_chipStyle(window._mgrFilterChip===key,enabled);
+    b.onclick=()=>{
+      if(b.disabled)return;
+      window._mgrFilterChip=key;
+      // chip 스타일만 업데이트
+      _chips.forEach(({el,k,en})=>{el.style.cssText=_chipStyle(window._mgrFilterChip===k,en);});
+      _applyFilter();
+    };
+    chipRow.appendChild(b);
+    _chips.push({el:b,k:key,en:enabled});
+  }
+  _mkChip('전체','ALL',true);
+  displayChips.forEach(ch=>{
+    const isUsed=usedChosung.has(ch)||(CHOSUNG_GROUP[ch]||[]).some(c=>usedChosung.has(c));
+    _mkChip(ch,ch,isUsed);
+  });
+
+  // === Pre-sort + Pre-compute chosung (1회만) ===
+  let sortedTot=tot.slice();
+  if(window._mgrFilterSort==='name')sortedTot.sort((a,b)=>a.mg.localeCompare(b.mg,'ko'));
+  // 각 항목에 초성 캐싱 (1회만)
+  sortedTot.forEach(t=>{t._cho=nameToChosung(t.mg);});
+
+  // === 체크박스 리스트 (한 번만 DOM 생성, 이후 show/hide만) ===
+  const list=document.getElementById('mgrCheckList');
+  list.innerHTML='';
+  // 빈 메시지 element
+  const emptyMsg=document.createElement('div');
+  emptyMsg.style.cssText='grid-column:1/-1;text-align:center;padding:10px;color:#888;font-size:12px;display:none';
+  emptyMsg.textContent='조건에 맞는 지도사가 없습니다';
+  list.appendChild(emptyMsg);
+
+  const labels=[]; // 각 항목 {el, mg, _ln, _cho}
+  const frag=document.createDocumentFragment();
+  sortedTot.forEach(t=>{
+    const lbl=document.createElement('label');
+    lbl.style.cssText='display:flex;align-items:center;gap:5px;padding:3px 6px;background:#fff;border:1px solid #e2e8f0;border-radius:4px;cursor:pointer;font-size:11px';
+    const cb=document.createElement('input');
+    cb.type='checkbox'; cb.value=t.mg;
+    cb.checked=window._mgrFilterSelected.includes(t.mg);
+    cb.style.cssText='margin:0;cursor:pointer';
+    cb.addEventListener('change',()=>{
+      if(cb.checked){if(!window._mgrFilterSelected.includes(t.mg))window._mgrFilterSelected.push(t.mg);}
+      else window._mgrFilterSelected=window._mgrFilterSelected.filter(x=>x!==t.mg);
+      _updateMgrSelCount();
+      renderMgrPkgTable();
+    });
+    lbl.appendChild(cb);
+    const span=document.createElement('span');
+    span.style.cssText='flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    span.innerHTML=`${t.mg} <span style="color:#888">(${fmtN(t.total)})</span>`;
+    lbl.appendChild(span);
+    frag.appendChild(lbl);
+    labels.push({el:lbl,cb,mg:t.mg,_cho:t._cho});
+  });
+  list.appendChild(frag);
+
+  // === Filter logic: chip 기준 display 토글만 ===
+  function _applyFilter(){
+    const chip=window._mgrFilterChip;
+    const chipGroup=(chip&&chip!=='ALL')?(CHOSUNG_GROUP[chip]||[chip]):null;
+    let visibleCount=0;
+    for(let i=0;i<labels.length;i++){
+      const it=labels[i];
+      let show=true;
+      if(chipGroup){
+        const cho=it._cho.charAt(0);
+        if(!chipGroup.includes(cho)){show=false;}
+      }
+      it.el.style.display=show?'flex':'none';
+      if(show)visibleCount++;
+    }
+    emptyMsg.style.display=visibleCount===0?'block':'none';
+  }
+  function _updateMgrSelCount(){
+    const n=window._mgrFilterSelected.length;
+    document.getElementById('mgrSelCount').textContent=n>0?`${n}명 선택`:'0명 선택 (미선택 시 전체 표시)';
+  }
+
+  // Sort
+  const sortEl=document.getElementById('mgrSortBy');
+  sortEl.value=window._mgrFilterSort;
+  sortEl.onchange=()=>{
+    window._mgrFilterSort=sortEl.value;
+    // 재정렬: DOM 순서만 교체
+    const sorted=labels.slice();
+    if(window._mgrFilterSort==='name')sorted.sort((a,b)=>a.mg.localeCompare(b.mg,'ko'));
+    else {
+      const order={}; tot.forEach((t,i)=>order[t.mg]=i);
+      sorted.sort((a,b)=>order[a.mg]-order[b.mg]);
+    }
+    const f=document.createDocumentFragment();
+    sorted.forEach(it=>f.appendChild(it.el));
+    list.appendChild(f); // 기존 element를 fragment에 옮기면 자동으로 list에서 빠지고 끝으로 재배치
+    list.insertBefore(emptyMsg,list.firstChild);
+  };
+
+  // Action buttons
+  document.getElementById('mgrSelAll').onclick=()=>{
+    labels.forEach(it=>{
+      if(it.el.style.display!=='none' && !it.cb.checked){
+        it.cb.checked=true;
+        if(!window._mgrFilterSelected.includes(it.mg))window._mgrFilterSelected.push(it.mg);
+      }
+    });
+    _updateMgrSelCount();
+    renderMgrPkgTable();
+  };
+  document.getElementById('mgrClearAll').onclick=()=>{
+    window._mgrFilterSelected=[];
+    labels.forEach(it=>{it.cb.checked=false;});
+    _updateMgrSelCount();
+    renderMgrPkgTable();
+  };
+
+  _applyFilter();
+  _updateMgrSelCount();
+
+  // === 지도사별 × 패키지별 월별 거래 상세 표 ===
+  const UP5=['관','요람장','수의','수의보','유골함'];
+  function renderMgrPkgTable(){
+    const selected=window._mgrFilterSelected||[];
+    const filtered=selected.length>0?tot.filter(t=>selected.includes(t.mg)):tot;
+    let mph='<thead><tr><th rowspan="2">지도사</th><th rowspan="2">패키지</th><th rowspan="2">구분</th>';
+    L.forEach(l=>mph+=`<th>${l.slice(2)}</th>`);
+    mph+='<th rowspan="2">누적</th><th rowspan="2">패키지내%</th></tr><tr></tr></thead><tbody>';
+    filtered.forEach(({mg,total})=>{
+      if(total===0)return;
+      const md=d.data[mg];
+      const pkgDetail=md.by_pkg_detail||{};
+      // 거래가 있는 패키지만 추출, 거래수 기준 정렬
+      const pkgList=DATA.package_list.filter(p=>pkgDetail[p]&&sum(pkgDetail[p].tx)>0);
+      pkgList.sort((a,b)=>sum(pkgDetail[b].tx)-sum(pkgDetail[a].tx));
+      if(pkgList.length===0)return;
+      // 지도사 rowspan = sum of (9 rows per package)
+      const mgrRowspan=pkgList.length*9;
+      let firstPkgRow=true;
+      pkgList.forEach(p=>{
+        const pd=pkgDetail[p];
+        const pTot=sum(pd.tx);
+        // 총거래 (패키지 첫 행)
+        let row='<tr class="row-total mgr-row">';
+        if(firstPkgRow){
+          row+=`<td class="lbl pkg-head" rowspan="${mgrRowspan}" style="background:#1f2937;color:#fff">${mg}<br><span style="font-size:10px;font-weight:400;opacity:0.8">${fmtN(total)}건</span></td>`;
+          firstPkgRow=false;
+        }
+        row+=`<td class="lbl" rowspan="9" style="background:#3b82f6;color:#fff;font-weight:600;font-size:11.5px">${p}<br><span style="font-size:10px;font-weight:400;opacity:0.9">${fmtN(pTot)}건</span></td>`;
+        row+=`<td class="lbl">총거래</td>`;
+        L.forEach((_,i)=>row+=`<td>${pd.tx[i]||'-'}</td>`);
+        row+=`<td class="col-total">${fmtN(pTot)}</td><td class="col-pct">100%</td></tr>`;
+        mph+=row;
+        // 업셀링 발생
+        const upT=sum(pd.upsell_cnt);
+        mph+=`<tr class="row-upsell"><td class="lbl">업셀링 발생</td>`;
+        L.forEach((_,i)=>mph+=`<td>${pd.upsell_cnt[i]||'-'}</td>`);
+        mph+=`<td class="col-total">${fmtN(upT)}</td><td class="col-pct">${pTot>0?(upT/pTot*100).toFixed(1):0}%</td></tr>`;
+        // 5품목
+        UP5.forEach(it=>{
+          const arr=pd.by_item[it]||L.map(()=>0);
+          const itT=sum(arr);
+          mph+=`<tr class="row-item"><td class="lbl-sub">└ ${it}</td>`;
+          L.forEach((_,i)=>{const v=arr[i];mph+=v>0?`<td>${v}</td>`:'<td class="zero">-</td>';});
+          mph+=`<td class="col-total">${fmtN(itT)}</td><td class="col-pct">${pTot>0?(itT/pTot*100).toFixed(1):0}%</td></tr>`;
+        });
+        // 기본만
+        const bT=sum(pd.basic_only_cnt);
+        mph+=`<tr class="row-base"><td class="lbl">기본만 (미업셀링)</td>`;
+        L.forEach((_,i)=>mph+=`<td>${pd.basic_only_cnt[i]||'-'}</td>`);
+        mph+=`<td class="col-total">${fmtN(bT)}</td><td class="col-pct">${pTot>0?(bT/pTot*100).toFixed(1):0}%</td></tr>`;
+        // 스톤 추가
+        const sT=sum(pd.stone_cnt);
+        mph+=`<tr class="row-stone"><td class="lbl">스톤 추가 (any)</td>`;
+        L.forEach((_,i)=>mph+=`<td>${pd.stone_cnt[i]||'-'}</td>`);
+        mph+=`<td class="col-total">${fmtN(sT)}</td><td class="col-pct">${pTot>0?(sT/pTot*100).toFixed(1):0}%</td></tr>`;
+      });
+    });
+    mph+='</tbody>';
+    document.getElementById('mgr_pkg_table').innerHTML=mph;
+  }
+  renderMgrPkgTable();
+
+  // === 강점 분석 카드 + 산점도 + 비교 표 (12개월 누적) ===
+  renderManagerAnalysis();
+}
+
+function renderManagerAnalysis(){
+  // 월별 강점 데이터 사용
+  const sm = DATA.manager_strength_monthly && DATA.manager_strength_monthly[curLoc];
+  const strContainer=document.getElementById('strengthContainer');
+  const insightBox=document.getElementById('strengthInsight');
+  document.getElementById('strengthMonthLabel').textContent = curMonth || '-';
+  document.getElementById('strengthLocLabel').textContent = curLoc;
+  if(!sm || !sm.by_period || !sm.by_period[curMonth]){
+    strContainer.innerHTML=`<div class="top5-empty">${curMonth} 시점에 데이터가 없습니다 (지점: ${curLoc}).</div>`;
+    insightBox.innerHTML='';
+    destroy('sc_premium');destroy('sc_upsell');destroy('sc_stone');
+    document.getElementById('cmpTable').innerHTML='<tr><td>데이터 없음</td></tr>';
+    return;
+  }
+  const periodData = sm.by_period[curMonth];
+  const avg = periodData.avg;
+  const mgrs = periodData.managers || [];
+  if(mgrs.length===0){
+    strContainer.innerHTML=`<div class="top5-empty">${curMonth} 시점에 거래 3건 이상 지도사가 없습니다 (지점: ${curLoc}).</div>`;
+    insightBox.innerHTML='';
+    destroy('sc_premium');destroy('sc_upsell');destroy('sc_stone');
+    document.getElementById('cmpTable').innerHTML='<tr><td>데이터 없음</td></tr>';
+    return;
+  }
+  const top10 = mgrs.slice(0, 5);  // Top 5 only now
+  const top5 = mgrs.slice(0, 5);
+
+  // Insight box - identify common pattern in top 5
+  const t5avg={
+    premium:top5.reduce((a,m)=>a+m.premium_pct,0)/top5.length,
+    upsell:top5.reduce((a,m)=>a+m.upsell_pct,0)/top5.length,
+    stone:top5.reduce((a,m)=>a+m.stone_pct,0)/top5.length,
+    aov:top5.reduce((a,m)=>a+m.aov,0)/top5.length,
+  };
+  const dPrem=t5avg.premium-avg.premium_pct;
+  const dUp=t5avg.upsell-avg.upsell_pct;
+  const dSt=t5avg.stone-avg.stone_pct;
+  const dAov=Math.round(t5avg.aov-avg.aov);
+  let mainDriver='고가패키지 비중';
+  const maxGap=Math.max(dPrem,dUp,dSt);
+  if(maxGap===dUp)mainDriver='업셀링 추가율';
+  else if(maxGap===dSt)mainDriver='스톤 전환율';
+  const t5avgUpsAmt=top5.reduce((a,m)=>a+(m.upsell_amt_per_tx||0),0)/top5.length;
+  const avgLabel = curLoc==='전체' ? '전 지점 평균' : `${curLoc} 지점 평균`;
+  insightBox.innerHTML=`
+    <b>📌 ${curLoc} 객단가 Top 5 지도사 특성</b> — 평균 객단가 ${fmtKRW(Math.round(t5avg.aov))}원 (${avgLabel} ${fmtKRW(avg.aov)}원 대비 ${dAov>=0?'+':''}${fmtKRW(dAov)})<br>
+    Top 5 평균: 고가패키지 <b>${t5avg.premium.toFixed(1)}%</b> (${avgLabel} ${avg.premium_pct}%, ${dPrem>=0?'+':''}${dPrem.toFixed(1)}%p) ·
+    업셀링 <b>${t5avg.upsell.toFixed(1)}%</b> (${fmtKRW(Math.round(t5avgUpsAmt))}/건, ${avgLabel} ${fmtKRW(avg.upsell_amt_per_tx||0)}/건) ·
+    스톤 <b>${t5avg.stone.toFixed(1)}%</b> (${avgLabel} ${avg.stone_pct}%, ${dSt>=0?'+':''}${dSt.toFixed(1)}%p)<br>
+    🎯 <b>주요 차별 요인: ${mainDriver}</b> (Top 5가 ${avgLabel} 대비 가장 크게 우위인 지표)
+  `;
+
+  // Top 10 strength cards
+  function bar(lbl, val, avgVal, scale){
+    const gap=val-avgVal;
+    const pct=Math.min(val/scale*100,100);
+    const avgPos=Math.min(avgVal/scale*100,100);
+    const cls=gap>=10?'pos':gap>=3?'pos':gap<=-10?'neg':gap<=-3?'neg':'neu';
+    const sign=gap>=0?'+':'';
+    return `<div class="bar-row">
+      <span class="bar-lbl">${lbl}</span>
+      <div class="bar-bg"><div class="bar-fg" style="width:${pct}%"></div><div class="bar-avg" style="left:${avgPos}%"></div></div>
+      <span class="bar-val">${val.toFixed(1)}%</span>
+      <span class="bar-gap ${cls}">${sign}${gap.toFixed(0)}p</span>
+    </div>`;
+  }
+  let sh='<div class="str-grid">';
+  top10.forEach((m,i)=>{
+    const rcls=i===0?'r1':i===1?'r2':i===2?'r3':'';
+    const aovGap=m.aov-avg.aov;
+    const aovGapStr=aovGap>=0?'+'+fmtKRW(aovGap):fmtKRW(aovGap);
+    const aovGapCls=aovGap>=0?'pos':'neg';
+    const tagsHtml=m.tags.map(t=>{
+      const cls=t.name==='균형형'?'tag balanced':'tag';
+      const gapStr=t.gap>0?`+${t.gap.toFixed(0)}%p`:'';
+      return `<span class="${cls}">${t.icon} ${t.name} ${gapStr}</span>`;
+    }).join('');
+    // 지점 표시 (당월 지점 + 현재 소속이 다르면 둘 다 표시)
+    const locsObj=m.loc_dist||{};
+    const locsArr=Object.entries(locsObj).sort((a,b)=>b[1]-a[1]);
+    let locText='';
+    if(locsArr.length===0){locText='';}
+    else if(locsArr.length===1){locText=locsArr[0][0];}
+    else{locText=locsArr.map(([l,c])=>`${l}(${c})`).join(', ');}
+    const curLocText=m.current_loc&&m.current_loc!==m.primary_loc?` <span style="font-size:10px;color:#888">→현재: ${m.current_loc}</span>`:'';
+    sh+=`<div class="str-card ${rcls}">
+      <div class="head"><div><span class="name">${m.name}</span> ${locText?`<span style="font-size:11px;color:#3b82f6;font-weight:500">@ ${locText}</span>`:''}${curLocText}</div><span class="rank">RANK ${i+1}</span></div>
+      <div class="aov-block">
+        <span class="aov-val">${fmtKRW(m.aov)}</span>
+        <span class="aov-vs ${aovGapCls}">vs 평균 ${aovGapStr}</span>
+      </div>
+      <div class="tx">${fmtN(m.tx)}건 거래 · 총매출 ${fmtKRW(m.amt)}</div>
+      <div class="bars">
+        ${bar('🎁 고가', m.premium_pct, avg.premium_pct, 80)}
+        ${bar('💎 업셀링', m.upsell_pct, avg.upsell_pct, 100)}
+        ${bar('⭐ 스톤', m.stone_pct, avg.stone_pct, 60)}
+      </div>
+      <div style="font-size:10.5px;color:#666;margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb">
+        업셀링 평균: <b style="color:#3b82f6">${fmtKRW(m.upsell_amt_per_tx||0)}/건</b> <span style="color:#888">(평균 ${fmtKRW(avg.upsell_amt_per_tx||0)})</span>
+      </div>
+      <div class="tags">${tagsHtml}</div>
+    </div>`;
+  });
+  sh+='</div>';
+  strContainer.innerHTML=sh;
+
+  // === 거래 건수 Top 5 (가장 많이 상담한 지도사) ===
+  const strTxContainer=document.getElementById('strengthTxContainer');
+  const insightTxBox=document.getElementById('strengthTxInsight');
+  document.getElementById('strengthTxMonthLabel').textContent=curMonth||'-';
+  document.getElementById('strengthTxLocLabel').textContent=curLoc;
+  const mgrsByTx=mgrs.slice().sort((a,b)=>b.tx-a.tx);
+  const top5Tx=mgrsByTx.slice(0,5);
+  if(top5Tx.length===0){
+    strTxContainer.innerHTML='';
+    insightTxBox.innerHTML='';
+  } else {
+    const t5tx_avg={
+      premium:top5Tx.reduce((a,m)=>a+m.premium_pct,0)/top5Tx.length,
+      upsell:top5Tx.reduce((a,m)=>a+m.upsell_pct,0)/top5Tx.length,
+      stone:top5Tx.reduce((a,m)=>a+m.stone_pct,0)/top5Tx.length,
+      aov:top5Tx.reduce((a,m)=>a+m.aov,0)/top5Tx.length,
+      tx:top5Tx.reduce((a,m)=>a+m.tx,0)/top5Tx.length,
+      upsAmt:top5Tx.reduce((a,m)=>a+(m.upsell_amt_per_tx||0),0)/top5Tx.length,
+    };
+    const dPremTx=t5tx_avg.premium-avg.premium_pct;
+    const dUpTx=t5tx_avg.upsell-avg.upsell_pct;
+    const dStTx=t5tx_avg.stone-avg.stone_pct;
+    const dAovTx=Math.round(t5tx_avg.aov-avg.aov);
+    const mgrAvgTx=avg.tx/(mgrs.length||1);
+    const avgLabel2 = curLoc==='전체' ? '전 지점 평균' : `${curLoc} 지점 평균`;
+    insightTxBox.innerHTML=`
+      <b>📌 ${curLoc} 거래 건수 Top 5 지도사 특성</b> — 평균 거래 ${fmtN(Math.round(t5tx_avg.tx))}건 (지도사당 평균 ${fmtN(Math.round(mgrAvgTx))}건) / 평균 객단가 ${fmtKRW(Math.round(t5tx_avg.aov))}원 (${avgLabel2} ${fmtKRW(avg.aov)}원 대비 ${dAovTx>=0?'+':''}${fmtKRW(dAovTx)})<br>
+      Top 5 평균: 고가패키지 <b>${t5tx_avg.premium.toFixed(1)}%</b> (${dPremTx>=0?'+':''}${dPremTx.toFixed(1)}%p) ·
+      업셀링 <b>${t5tx_avg.upsell.toFixed(1)}%</b> (${fmtKRW(Math.round(t5tx_avg.upsAmt))}/건) ·
+      스톤 <b>${t5tx_avg.stone.toFixed(1)}%</b> (${dStTx>=0?'+':''}${dStTx.toFixed(1)}%p)<br>
+      🎯 <b>해석</b>: 거래수가 많은 지도사들의 영업 패턴 — 객단가 Top 5와 비교해 "양 vs 질" 인사이트
+    `;
+    let txH='<div class="str-grid">';
+    top5Tx.forEach((m,i)=>{
+      const rcls=i===0?'r1':i===1?'r2':i===2?'r3':'';
+      const aovGap=m.aov-avg.aov;
+      const aovGapStr=aovGap>=0?'+'+fmtKRW(aovGap):fmtKRW(aovGap);
+      const aovGapCls=aovGap>=0?'pos':'neg';
+      const tagsHtml=m.tags.map(t=>{
+        const cls=t.name==='균형형'?'tag balanced':'tag';
+        const gapStr=t.gap>0?`+${t.gap.toFixed(0)}%p`:'';
+        return `<span class="${cls}">${t.icon} ${t.name} ${gapStr}</span>`;
+      }).join('');
+      const locsObjTx=m.loc_dist||{};
+      const locsArrTx=Object.entries(locsObjTx).sort((a,b)=>b[1]-a[1]);
+      let locTextTx='';
+      if(locsArrTx.length===1){locTextTx=locsArrTx[0][0];}
+      else if(locsArrTx.length>1){locTextTx=locsArrTx.map(([l,c])=>`${l}(${c})`).join(', ');}
+      const curLocTextTx=m.current_loc&&m.current_loc!==m.primary_loc?` <span style="font-size:10px;color:#888">→현재: ${m.current_loc}</span>`:'';
+      txH+=`<div class="str-card ${rcls}">
+        <div class="head"><div><span class="name">${m.name}</span> ${locTextTx?`<span style="font-size:11px;color:#10b981;font-weight:500">@ ${locTextTx}</span>`:''}${curLocTextTx}</div><span class="rank">RANK ${i+1}</span></div>
+        <div class="aov-block">
+          <span class="aov-val" style="color:#10b981">${fmtN(m.tx)}건</span>
+          <span class="aov-vs" style="color:#888">vs 평균 ${fmtN(Math.round(mgrAvgTx))}건</span>
+        </div>
+        <div class="tx">객단가 ${fmtKRW(m.aov)} <span class="${aovGapCls==='pos'?'aov-vs pos':'aov-vs neg'}">vs 평균 ${aovGapStr}</span> · 총매출 ${fmtKRW(m.amt)}</div>
+        <div class="bars">
+          ${bar('🎁 고가', m.premium_pct, avg.premium_pct, 80)}
+          ${bar('💎 업셀링', m.upsell_pct, avg.upsell_pct, 100)}
+          ${bar('⭐ 스톤', m.stone_pct, avg.stone_pct, 60)}
+        </div>
+        <div style="font-size:10.5px;color:#666;margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb">
+          업셀링 평균: <b style="color:#3b82f6">${fmtKRW(m.upsell_amt_per_tx||0)}/건</b> <span style="color:#888">(평균 ${fmtKRW(avg.upsell_amt_per_tx||0)})</span>
+        </div>
+        <div class="tags">${tagsHtml}</div>
+      </div>`;
+    });
+    txH+='</div>';
+    strTxContainer.innerHTML=txH;
+  }
+
+  // Scatter plots
+  function makeScatter(canvasId, xField, xLabel){
+    destroy(canvasId);
+    const points=mgrs.map(m=>({x:m[xField],y:m.aov,r:Math.min(Math.sqrt(m.tx)*0.6,18),label:m.name,tx:m.tx}));
+    // 추세선: simple linear regression
+    const n=points.length;
+    const sx=points.reduce((a,p)=>a+p.x,0),sy=points.reduce((a,p)=>a+p.y,0);
+    const sxy=points.reduce((a,p)=>a+p.x*p.y,0),sxx=points.reduce((a,p)=>a+p.x*p.x,0);
+    const slope=(n*sxy-sx*sy)/(n*sxx-sx*sx);
+    const intercept=(sy-slope*sx)/n;
+    // Correlation
+    const meanX=sx/n,meanY=sy/n;
+    const num=points.reduce((a,p)=>a+(p.x-meanX)*(p.y-meanY),0);
+    const denX=Math.sqrt(points.reduce((a,p)=>a+(p.x-meanX)**2,0));
+    const denY=Math.sqrt(points.reduce((a,p)=>a+(p.y-meanY)**2,0));
+    const corr=num/(denX*denY);
+    const xMin=Math.min(...points.map(p=>p.x)),xMax=Math.max(...points.map(p=>p.x));
+    const trend=[{x:xMin,y:slope*xMin+intercept},{x:xMax,y:slope*xMax+intercept}];
+
+    // Highlight Top 10
+    const topNames=new Set(top10.map(m=>m.name));
+    const top10Points=points.filter(p=>topNames.has(p.label));
+    const otherPoints=points.filter(p=>!topNames.has(p.label));
+
+    charts[canvasId]=new Chart(document.getElementById(canvasId),{
+      type:'scatter',
+      data:{datasets:[
+        {label:`전체 (n=${otherPoints.length})`,data:otherPoints,backgroundColor:'rgba(148,163,184,0.5)',borderColor:'rgba(148,163,184,0.7)',pointStyle:'circle'},
+        {label:`Top 10 (n=${top10Points.length})`,data:top10Points,backgroundColor:'rgba(239,68,68,0.8)',borderColor:'rgba(220,38,38,1)',pointStyle:'circle'},
+        {label:`추세선 (r=${corr.toFixed(2)})`,data:trend,type:'line',borderColor:'rgba(59,130,246,0.7)',borderWidth:2,borderDash:[5,5],pointRadius:0,fill:false,showLine:true},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},
+          tooltip:{callbacks:{label:(c)=>{
+            if(c.dataset.type==='line')return '';
+            const p=c.raw;
+            return `${p.label}: 객단가 ${fmtKRW(p.y)}, ${xLabel} ${p.x.toFixed(1)}% (${p.tx}건)`;
+          }}}},
+        scales:{
+          x:{title:{display:true,text:xLabel+' (%)',font:{size:11}},ticks:{font:{size:10}}},
+          y:{title:{display:true,text:'객단가 (원)',font:{size:11}},ticks:{callback:v=>fmtKRW(v),font:{size:10}}}
+        }}});
+  }
+  makeScatter('sc_premium','premium_pct','고가패키지 비중');
+  makeScatter('sc_upsell','upsell_pct','업셀링 추가율');
+  makeScatter('sc_stone','stone_pct','스톤 전환율');
+
+  // Comparison table (sortable)
+  function heatCls(diff){
+    if(diff>=15)return'heat-pos5';
+    if(diff>=10)return'heat-pos4';
+    if(diff>=5)return'heat-pos3';
+    if(diff>=2)return'heat-pos2';
+    if(diff>=0)return'heat-pos1';
+    if(diff<=-15)return'heat-neg5';
+    if(diff<=-10)return'heat-neg4';
+    if(diff<=-5)return'heat-neg3';
+    if(diff<=-2)return'heat-neg2';
+    return'heat-neg1';
+  }
+  function heatClsAov(diff){
+    const pct=diff/avg.aov*100;
+    return heatCls(pct);
+  }
+  // 기본화장%, 소동물% 재계산 (pkg_dist 기반)
+  function _basicOnly(m){
+    if(!m.pkg_dist||!m.tx)return 0;
+    return (m.pkg_dist['기본화장']||0)/m.tx*100;
+  }
+  function _smallTotal(m){
+    if(!m.pkg_dist||!m.tx)return 0;
+    return ((m.pkg_dist['소동물_기본']||0)+(m.pkg_dist['소동물_관']||0))/m.tx*100;
+  }
+  // 지점 평균 (모든 지도사 가중평균)
+  const totMgrTx=mgrs.reduce((s,m)=>s+m.tx,0)||1;
+  const avgBasicOnly=mgrs.reduce((s,m)=>s+((m.pkg_dist&&m.pkg_dist['기본화장'])||0),0)/totMgrTx*100;
+  const avgSmall=mgrs.reduce((s,m)=>s+(((m.pkg_dist&&m.pkg_dist['소동물_기본'])||0)+((m.pkg_dist&&m.pkg_dist['소동물_관'])||0)),0)/totMgrTx*100;
+  window._cmpData=mgrs.map(m=>{
+    const bo=_basicOnly(m), sm=_smallTotal(m);
+    return {...m,aov_gap:m.aov-avg.aov,
+      premium_gap:m.premium_pct-avg.premium_pct,
+      upsell_gap:m.upsell_pct-avg.upsell_pct,
+      stone_gap:m.stone_pct-avg.stone_pct,
+      basic_only_pct:bo, basic_only_gap:bo-avgBasicOnly,
+      small_pct:sm, small_gap:sm-avgSmall,
+    };
+  });
+  window._cmpAvgBasicOnly=avgBasicOnly;
+  window._cmpAvgSmall=avgSmall;
+  window._cmpSortKey='aov';window._cmpSortDir=-1;
+  function renderCmpTable(){
+    const data=window._cmpData.slice();
+    const k=window._cmpSortKey,dir=window._cmpSortDir;
+    data.sort((a,b)=>{const av=a[k],bv=b[k];if(typeof av==='number'&&typeof bv==='number')return (av-bv)*dir;return String(av).localeCompare(String(bv))*dir;});
+    let h='<thead><tr>';
+    const cols=[
+      ['rank','순위',false],['name','지도사',false],['tx','거래수',true],
+      ['aov','객단가',true],['aov_gap','vs 평균',true],
+      ['premium_pct','고가%',true],['basic_only_pct','기본화장%',true],['small_pct','소동물%',true],
+      ['upsell_pct','업셀링%',true],['upsell_amt_per_tx','업셀링/건',true],['stone_pct','스톤%',true],
+    ];
+    cols.forEach(([k2,lbl,sortable])=>{
+      const sortCls=k===k2?(dir===-1?'sorted-desc':'sorted-asc'):'';
+      h+=`<th class="${sortCls}" data-key="${k2}">${lbl}</th>`;
+    });
+    h+='</tr></thead><tbody>';
+    data.forEach((m,i)=>{
+      const aovHeat=heatClsAov(m.aov_gap);
+      const pHeat=heatCls(m.premium_gap);
+      const uHeat=heatCls(m.upsell_gap);
+      const sHeat=heatCls(m.stone_gap);
+      const bHeat=heatCls(-(m.basic_gap||0));  // legacy
+      const boHeat=heatCls(-m.basic_only_gap);  // 기본화장은 낮을수록 좋음 (역방향)
+      const smHeat=heatCls(-m.small_gap);  // 소동물은 보통 작은 비중, 마찬가지로 역방향
+      const locTxt=m.primary_loc?` <span style="font-size:10px;color:#3b82f6">@${m.primary_loc}</span>`:'';
+      const curLocCmp=m.current_loc&&m.current_loc!==m.primary_loc?`<br><span style="font-size:9px;color:#888">현재:${m.current_loc}</span>`:'';
+      h+=`<tr>
+        <td>${i+1}</td>
+        <td class="lbl">${m.name}${locTxt}${curLocCmp}</td>
+        <td>${fmtN(m.tx)}</td>
+        <td class="${aovHeat}">${fmtKRW(m.aov)}</td>
+        <td class="${aovHeat}">${m.aov_gap>=0?'+':''}${fmtKRW(m.aov_gap)}</td>
+        <td class="${pHeat}">${m.premium_pct.toFixed(1)}%</td>
+        <td class="${boHeat}">${m.basic_only_pct.toFixed(1)}%</td>
+        <td class="${smHeat}">${m.small_pct.toFixed(1)}%</td>
+        <td class="${uHeat}">${m.upsell_pct.toFixed(1)}%</td>
+        <td>${fmtKRW(m.upsell_amt_per_tx||0)}</td>
+        <td class="${sHeat}">${m.stone_pct.toFixed(1)}%</td>
+      </tr>`;
+    });
+    // 평균 row
+    h+=`<tr style="background:#1f2937;color:#fff;font-weight:600">
+      <td>—</td>
+      <td class="lbl" style="color:#fff">전체 평균</td>
+      <td>—</td>
+      <td>${fmtKRW(avg.aov)}</td>
+      <td>—</td>
+      <td>${avg.premium_pct.toFixed(1)}%</td>
+      <td>${window._cmpAvgBasicOnly.toFixed(1)}%</td>
+      <td>${window._cmpAvgSmall.toFixed(1)}%</td>
+      <td>${avg.upsell_pct.toFixed(1)}%</td>
+      <td>${fmtKRW(avg.upsell_amt_per_tx||0)}</td>
+      <td>${avg.stone_pct.toFixed(1)}%</td>
+    </tr>`;
+    h+='</tbody>';
+    const tbl=document.getElementById('cmpTable');
+    tbl.innerHTML=h;
+    tbl.querySelectorAll('thead th').forEach(th=>{
+      th.onclick=()=>{
+        const newKey=th.dataset.key;
+        if(window._cmpSortKey===newKey){window._cmpSortDir*=-1;}
+        else{window._cmpSortKey=newKey;window._cmpSortDir=-1;}
+        renderCmpTable();
+      };
+    });
+  }
+  const cmpLbl=document.getElementById('cmpMonthLabel');
+  if(cmpLbl)cmpLbl.textContent=curMonth||'';
+  renderCmpTable();
+  renderCustomerProfile();
+  renderStoneTable();
+  renderCharnelTable();
+}
+
+// 전역 heatCls (스톤/봉안당 표에서 공용)
+function heatCls(diff){
+  if(diff>=15)return'heat-pos5';
+  if(diff>=10)return'heat-pos4';
+  if(diff>=5)return'heat-pos3';
+  if(diff>=2)return'heat-pos2';
+  if(diff>=0)return'heat-pos1';
+  if(diff<=-15)return'heat-neg5';
+  if(diff<=-10)return'heat-neg4';
+  if(diff<=-5)return'heat-neg3';
+  if(diff<=-2)return'heat-neg2';
+  return'heat-neg1';
+}
+
+function renderStoneTable() {
+  const sm = DATA.manager_strength_monthly && DATA.manager_strength_monthly[curLoc];
+  document.getElementById('stoneMonthLabel').textContent = curMonth || '-';
+  const el = document.getElementById('stoneTable');
+  if (!sm || !sm.by_period || !sm.by_period[curMonth]) {
+    el.innerHTML = '<tr><td>데이터 없음</td></tr>';
+    return;
+  }
+  const periodData = sm.by_period[curMonth];
+  const mgrs = periodData.managers || [];
+  if (mgrs.length === 0) {
+    el.innerHTML = '<tr><td>해당 월에 매니저 데이터 없음</td></tr>';
+    return;
+  }
+  if (!window._stoneSortKey) { window._stoneSortKey = 'stone_total'; window._stoneSortDir = -1; }
+  const cols = [
+    ['rank', '순위', false],
+    ['name', '지도사', false],
+    ['primary_loc', '지점', false],
+    ['tx', '장례건수', true],
+    ['stone_item_aov', '스톤 객단가', true],
+    ['stone_jejak_cnt', '스톤제작', true],
+    ['stone_jejak_pct', '스톤제작%', true],
+    ['stone_ham_cnt', '스톤함', true],
+    ['stone_ham_pct', '스톤함%', true],
+    ['stone_total', '합계(any)', true],
+    ['stone_pct', '전환율%', true],
+  ];
+  // 평균 계산 (가중평균)
+  let sumTx=0, sumSJ=0, sumSH=0, sumStotal=0, sumStoneAmt=0;
+  mgrs.forEach(m => {
+    sumTx += m.tx || 0;
+    sumSJ += m.stone_jejak_cnt || 0;
+    sumSH += m.stone_ham_cnt || 0;
+    sumStotal += m.stone_total_cnt || m.stone_tx || 0;
+    sumStoneAmt += m.stone_amt || 0;
+  });
+  const avgStoneJejakPct = sumTx > 0 ? sumSJ / sumTx * 100 : 0;
+  const avgStoneHamPct = sumTx > 0 ? sumSH / sumTx * 100 : 0;
+  const avgStoneTotalPct = sumTx > 0 ? sumStotal / sumTx * 100 : 0;
+  const avgStoneAov = sumStotal > 0 ? sumStoneAmt / sumStotal : 0;
+
+  const data = mgrs.map(m => {
+    const sj = m.stone_jejak_cnt || 0;
+    const sh = m.stone_ham_cnt || 0;
+    const st = m.stone_total_cnt || m.stone_tx || 0;
+    return {
+      ...m,
+      stone_jejak_cnt: sj,
+      stone_ham_cnt: sh,
+      stone_jejak_pct: m.tx > 0 ? sj / m.tx * 100 : 0,
+      stone_ham_pct: m.tx > 0 ? sh / m.tx * 100 : 0,
+      stone_total: st,
+      stone_item_aov: m.stone_item_aov || 0,
+    };
+  });
+  data.sort((a, b) => {
+    const k = window._stoneSortKey, dir = window._stoneSortDir;
+    const av = a[k], bv = b[k];
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av || '').localeCompare(String(bv || '')) * dir;
+  });
+  let h = '<thead><tr>';
+  cols.forEach(([k, lbl]) => {
+    const sortCls = window._stoneSortKey === k ? (window._stoneSortDir === -1 ? 'sorted-desc' : 'sorted-asc') : '';
+    h += `<th class="${sortCls}" data-key="${k}">${lbl}</th>`;
+  });
+  h += '</tr></thead><tbody>';
+  data.forEach((m, i) => {
+    // 평균 대비 차이로 heatmap
+    const sjCls = heatCls(m.stone_jejak_pct - avgStoneJejakPct);
+    const shCls = heatCls(m.stone_ham_pct - avgStoneHamPct);
+    const stCls = heatCls(m.stone_pct - avgStoneTotalPct);
+    const stoneAovGap = m.stone_item_aov - avgStoneAov;
+    const stoneAovCls = avgStoneAov > 0 ? heatCls(stoneAovGap / Math.max(avgStoneAov,1) * 100) : '';
+    h += `<tr>
+      <td>${i + 1}</td>
+      <td class="lbl">${m.name}</td>
+      <td style="color:#3b82f6;font-size:11px">${m.primary_loc || '-'}</td>
+      <td>${fmtN(m.tx)}</td>
+      <td class="${stoneAovCls}">${m.stone_item_aov > 0 ? fmtKRW(m.stone_item_aov) : '-'}</td>
+      <td>${fmtN(m.stone_jejak_cnt)}</td>
+      <td class="${sjCls}">${m.stone_jejak_pct.toFixed(1)}%</td>
+      <td>${fmtN(m.stone_ham_cnt)}</td>
+      <td class="${shCls}">${m.stone_ham_pct.toFixed(1)}%</td>
+      <td><b>${fmtN(m.stone_total)}</b></td>
+      <td class="${stCls}"><b>${m.stone_pct.toFixed(1)}%</b></td>
+    </tr>`;
+  });
+  // 합계 row + 지도사당 평균 row
+  const nMgr = mgrs.length || 1;
+  h += `<tr style="background:#1f2937;color:#fff;font-weight:600">
+    <td>—</td>
+    <td class="lbl" style="color:#fff">${curLoc} 합계 (${nMgr}명)</td>
+    <td style="color:#9ca3af">—</td>
+    <td>${fmtN(sumTx)}</td>
+    <td>${avgStoneAov > 0 ? fmtKRW(Math.round(avgStoneAov)) : '-'}</td>
+    <td>${fmtN(sumSJ)}</td>
+    <td>${avgStoneJejakPct.toFixed(1)}%</td>
+    <td>${fmtN(sumSH)}</td>
+    <td>${avgStoneHamPct.toFixed(1)}%</td>
+    <td>${fmtN(sumStotal)}</td>
+    <td>${avgStoneTotalPct.toFixed(1)}%</td>
+  </tr>`;
+  h += `<tr style="background:#475569;color:#fff;font-weight:500;font-size:12px">
+    <td>—</td>
+    <td class="lbl" style="color:#fff">${curLoc} 지도사당 평균</td>
+    <td style="color:#cbd5e0">—</td>
+    <td>${(sumTx/nMgr).toFixed(1)}건</td>
+    <td>${avgStoneAov > 0 ? fmtKRW(Math.round(avgStoneAov)) : '-'}</td>
+    <td>${(sumSJ/nMgr).toFixed(1)}건</td>
+    <td>${avgStoneJejakPct.toFixed(1)}%</td>
+    <td>${(sumSH/nMgr).toFixed(1)}건</td>
+    <td>${avgStoneHamPct.toFixed(1)}%</td>
+    <td>${(sumStotal/nMgr).toFixed(1)}건</td>
+    <td>${avgStoneTotalPct.toFixed(1)}%</td>
+  </tr>`;
+  h += '</tbody>';
+  el.innerHTML = h;
+  el.querySelectorAll('thead th').forEach(th => {
+    const k = th.dataset.key;
+    if (!k) return;
+    th.onclick = () => {
+      if (window._stoneSortKey === k) window._stoneSortDir *= -1;
+      else { window._stoneSortKey = k; window._stoneSortDir = -1; }
+      renderStoneTable();
+    };
+  });
+}
+
+function renderCharnelTable() {
+  const sm = DATA.manager_strength_monthly && DATA.manager_strength_monthly[curLoc];
+  document.getElementById('charnelMonthLabel').textContent = curMonth || '-';
+  const el = document.getElementById('charnelTable');
+  if (!sm || !sm.by_period || !sm.by_period[curMonth]) {
+    el.innerHTML = '<tr><td>데이터 없음</td></tr>';
+    return;
+  }
+  const mgrs = sm.by_period[curMonth].managers || [];
+  if (mgrs.length === 0) {
+    el.innerHTML = '<tr><td>해당 월에 매니저 데이터 없음</td></tr>';
+    return;
+  }
+  if (!window._charnelSortKey) { window._charnelSortKey = 'charnel_total_cnt'; window._charnelSortDir = -1; }
+  const cols = [
+    ['rank', '순위', false],
+    ['name', '지도사', false],
+    ['primary_loc', '지점', false],
+    ['tx', '장례건수', true],
+    ['charnel_item_aov', '봉안 객단가', true],
+    ['charnel_new_cnt', '봉안당신규', true],
+    ['charnel_new_pct', '신규%', true],
+    ['charnel_ext_cnt', '봉안당연장', true],
+    ['charnel_total_cnt', '합계(any)', true],
+    ['charnel_total_pct', '봉안 첨부율%', true],
+  ];
+  // 평균 계산
+  let sumTx=0, sumCN=0, sumCE=0, sumCT=0, sumCharnelAmt=0;
+  mgrs.forEach(m => {
+    sumTx += m.tx || 0;
+    sumCN += m.charnel_new_cnt || 0;
+    sumCE += m.charnel_ext_cnt || 0;
+    sumCT += m.charnel_total_cnt || 0;
+    sumCharnelAmt += m.charnel_amt || 0;
+  });
+  const avgNewPct = sumTx > 0 ? sumCN / sumTx * 100 : 0;
+  const avgTotalPct = sumTx > 0 ? sumCT / sumTx * 100 : 0;
+  const avgCharnelAov = sumCT > 0 ? sumCharnelAmt / sumCT : 0;
+
+  const data = mgrs.map(m => {
+    const cn = m.charnel_new_cnt || 0;
+    const ce = m.charnel_ext_cnt || 0;
+    const ct = m.charnel_total_cnt || 0;
+    return {
+      ...m,
+      charnel_new_cnt: cn, charnel_ext_cnt: ce, charnel_total_cnt: ct,
+      charnel_new_pct: m.tx > 0 ? cn / m.tx * 100 : 0,
+      charnel_total_pct: m.tx > 0 ? ct / m.tx * 100 : 0,
+      charnel_item_aov: m.charnel_item_aov || 0,
+    };
+  });
+  data.sort((a, b) => {
+    const k = window._charnelSortKey, dir = window._charnelSortDir;
+    const av = a[k], bv = b[k];
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av || '').localeCompare(String(bv || '')) * dir;
+  });
+  let h = '<thead><tr>';
+  cols.forEach(([k, lbl]) => {
+    const sortCls = window._charnelSortKey === k ? (window._charnelSortDir === -1 ? 'sorted-desc' : 'sorted-asc') : '';
+    h += `<th class="${sortCls}" data-key="${k}">${lbl}</th>`;
+  });
+  h += '</tr></thead><tbody>';
+  data.forEach((m, i) => {
+    // 평균 대비 색상
+    const newCls = heatCls(m.charnel_new_pct - avgNewPct);
+    const totCls = heatCls(m.charnel_total_pct - avgTotalPct);
+    const charnelAovGap = m.charnel_item_aov - avgCharnelAov;
+    const charnelAovCls = avgCharnelAov > 0 ? heatCls(charnelAovGap / Math.max(avgCharnelAov,1) * 100) : '';
+    h += `<tr>
+      <td>${i + 1}</td>
+      <td class="lbl">${m.name}</td>
+      <td style="color:#3b82f6;font-size:11px">${m.primary_loc || '-'}</td>
+      <td>${fmtN(m.tx)}</td>
+      <td class="${charnelAovCls}">${m.charnel_item_aov > 0 ? fmtKRW(m.charnel_item_aov) : '-'}</td>
+      <td>${fmtN(m.charnel_new_cnt)}</td>
+      <td class="${newCls}">${m.charnel_new_pct.toFixed(1)}%</td>
+      <td>${fmtN(m.charnel_ext_cnt)}</td>
+      <td><b>${fmtN(m.charnel_total_cnt)}</b></td>
+      <td class="${totCls}"><b>${m.charnel_total_pct.toFixed(1)}%</b></td>
+    </tr>`;
+  });
+  // 합계 row + 지도사당 평균 row
+  const nMgrC = mgrs.length || 1;
+  h += `<tr style="background:#1f2937;color:#fff;font-weight:600">
+    <td>—</td>
+    <td class="lbl" style="color:#fff">${curLoc} 합계 (${nMgrC}명)</td>
+    <td style="color:#9ca3af">—</td>
+    <td>${fmtN(sumTx)}</td>
+    <td>${avgCharnelAov > 0 ? fmtKRW(Math.round(avgCharnelAov)) : '-'}</td>
+    <td>${fmtN(sumCN)}</td>
+    <td>${avgNewPct.toFixed(1)}%</td>
+    <td>${fmtN(sumCE)}</td>
+    <td>${fmtN(sumCT)}</td>
+    <td>${avgTotalPct.toFixed(1)}%</td>
+  </tr>`;
+  h += `<tr style="background:#475569;color:#fff;font-weight:500;font-size:12px">
+    <td>—</td>
+    <td class="lbl" style="color:#fff">${curLoc} 지도사당 평균</td>
+    <td style="color:#cbd5e0">—</td>
+    <td>${(sumTx/nMgrC).toFixed(1)}건</td>
+    <td>${avgCharnelAov > 0 ? fmtKRW(Math.round(avgCharnelAov)) : '-'}</td>
+    <td>${(sumCN/nMgrC).toFixed(1)}건</td>
+    <td>${avgNewPct.toFixed(1)}%</td>
+    <td>${(sumCE/nMgrC).toFixed(1)}건</td>
+    <td>${(sumCT/nMgrC).toFixed(1)}건</td>
+    <td>${avgTotalPct.toFixed(1)}%</td>
+  </tr>`;
+  h += '</tbody>';
+  el.innerHTML = h;
+  el.querySelectorAll('thead th').forEach(th => {
+    const k = th.dataset.key;
+    if (!k) return;
+    th.onclick = () => {
+      if (window._charnelSortKey === k) window._charnelSortDir *= -1;
+      else { window._charnelSortKey = k; window._charnelSortDir = -1; }
+      renderCharnelTable();
+    };
+  });
+}
+
+function renderCustomerProfile() {
+  const cp = DATA.customer_profile_comparison && DATA.customer_profile_comparison[curLoc];
+  const infoBox = document.getElementById('cpInfoBox');
+  if (!cp) {
+    infoBox.innerHTML = `<div style="color:#888">해당 지점에 비교 가능한 매니저 수가 부족합니다 (최소 6명 필요).</div>`;
+    ['cp_death','cp_weight','cp_age','cp_breed'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<tr><td>데이터 없음</td></tr>';
+    });
+    return;
+  }
+  const aovGap = cp.top_aov_avg - cp.bot_aov_avg;
+  infoBox.innerHTML = `
+    <b>📌 ${curLoc} 비교 그룹</b> — Top ${cp.top_count}명 (평균 AOV ${fmtKRW(cp.top_aov_avg)}) vs Bot ${cp.bot_count}명 (평균 AOV ${fmtKRW(cp.bot_aov_avg)}) · 격차 <b>${fmtKRW(aovGap)}</b><br>
+    Top 매니저: <b>${cp.top_managers.join(', ')}</b><br>
+    Bot 매니저: <b>${cp.bot_managers.join(', ')}</b><br>
+    거래수: Top ${fmtN(cp.top_tx)}건 / Bot ${fmtN(cp.bot_tx)}건
+  `;
+  const dcKeys = new Set([...Object.keys(cp.death_cause.top), ...Object.keys(cp.death_cause.bot)]);
+  const dcArr = Array.from(dcKeys).map(k => ({
+    name: k,
+    top: cp.death_cause.top[k] || 0,
+    bot: cp.death_cause.bot[k] || 0,
+  }));
+  dcArr.sort((a, b) => (b.top + b.bot) - (a.top + a.bot));
+  let dh = '<thead><tr><th>사망 원인</th><th>Top%</th><th>Bot%</th><th>차이(%p)</th></tr></thead><tbody>';
+  dcArr.slice(0, 12).forEach(r => {
+    const diff = r.top - r.bot;
+    const cls = Math.abs(diff) >= 5 ? (diff > 0 ? 'heat-pos3' : 'heat-neg3') : '';
+    dh += `<tr><td>${r.name}</td><td>${r.top.toFixed(1)}%</td><td>${r.bot.toFixed(1)}%</td><td class="${cls}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}p</td></tr>`;
+  });
+  dh += '</tbody>';
+  document.getElementById('cp_death').innerHTML = dh;
+  const wBuckets = ['소형(<3kg)', '중소형(3-7kg)', '중형(7-15kg)', '대형(15-30kg)', '특대형(30kg+)', '미상'];
+  let wh = '<thead><tr><th>체중</th><th>Top%</th><th>Bot%</th><th>차이(%p)</th></tr></thead><tbody>';
+  wBuckets.forEach(b => {
+    const t = cp.weight.top[b] || 0, bt = cp.weight.bot[b] || 0;
+    const diff = t - bt;
+    wh += `<tr><td>${b}</td><td>${t.toFixed(1)}%</td><td>${bt.toFixed(1)}%</td><td>${diff >= 0 ? '+' : ''}${diff.toFixed(1)}p</td></tr>`;
+  });
+  wh += `<tr style="background:#f0f9ff;font-weight:600"><td>평균 체중</td><td>${cp.weight.top_avg}kg</td><td>${cp.weight.bot_avg}kg</td><td>${(cp.weight.top_avg - cp.weight.bot_avg >= 0 ? '+' : '') + (cp.weight.top_avg - cp.weight.bot_avg).toFixed(1)}kg</td></tr>`;
+  wh += '</tbody>';
+  document.getElementById('cp_weight').innerHTML = wh;
+  const aBuckets = ['20대 이하', '30대', '40대', '50대', '60대+', '미상'];
+  let ah = '<thead><tr><th>연령대</th><th>Top%</th><th>Bot%</th><th>차이(%p)</th></tr></thead><tbody>';
+  aBuckets.forEach(b => {
+    const t = cp.age.top[b] || 0, bt = cp.age.bot[b] || 0;
+    const diff = t - bt;
+    ah += `<tr><td>${b}</td><td>${t.toFixed(1)}%</td><td>${bt.toFixed(1)}%</td><td>${diff >= 0 ? '+' : ''}${diff.toFixed(1)}p</td></tr>`;
+  });
+  ah += '</tbody>';
+  document.getElementById('cp_age').innerHTML = ah;
+  const bKeys = new Set();
+  cp.breed.top.forEach(r => bKeys.add(r.name));
+  cp.breed.bot.forEach(r => bKeys.add(r.name));
+  const bMap = { top: {}, bot: {} };
+  cp.breed.top.forEach(r => { bMap.top[r.name] = r.pct; });
+  cp.breed.bot.forEach(r => { bMap.bot[r.name] = r.pct; });
+  const bArr = Array.from(bKeys).map(name => ({
+    name,
+    top: bMap.top[name] || 0,
+    bot: bMap.bot[name] || 0,
+  }));
+  bArr.sort((a, b) => (b.top + b.bot) - (a.top + a.bot));
+  let bh = '<thead><tr><th>품종</th><th>Top%</th><th>Bot%</th><th>차이(%p)</th></tr></thead><tbody>';
+  bArr.slice(0, 12).forEach(r => {
+    const diff = r.top - r.bot;
+    bh += `<tr><td>${r.name}</td><td>${r.top.toFixed(1)}%</td><td>${r.bot.toFixed(1)}%</td><td>${diff >= 0 ? '+' : ''}${diff.toFixed(1)}p</td></tr>`;
+  });
+  bh += '</tbody>';
+  document.getElementById('cp_breed').innerHTML = bh;
+}
+
+let curMonth = null;
+(function initMonthSelect(){
+  const sel=document.getElementById('strengthMonth');
+  const periods = (DATA.manager_strength_monthly && DATA.manager_strength_monthly['전체'] && DATA.manager_strength_monthly['전체'].periods) || DATA.monthly.periods;
+  periods.forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p; o.textContent=p;
+    sel.appendChild(o);
+  });
+  curMonth = periods[periods.length-1];
+  sel.value = curMonth;
+  sel.onchange = (e)=>{ curMonth = e.target.value; if(curTab==='manager') renderManager(); };
+  document.getElementById('monthPrev').onclick = ()=>{
+    const idx = periods.indexOf(curMonth);
+    if(idx>0){ curMonth = periods[idx-1]; sel.value = curMonth; if(curTab==='manager') renderManager(); }
+  };
+  document.getElementById('monthNext').onclick = ()=>{
+    const idx = periods.indexOf(curMonth);
+    if(idx<periods.length-1){ curMonth = periods[idx+1]; sel.value = curMonth; if(curTab==='manager') renderManager(); }
+  };
+  document.getElementById('monthLatest').onclick = ()=>{
+    curMonth = periods[periods.length-1]; sel.value = curMonth; if(curTab==='manager') renderManager();
+  };
+})();
+
+function render(){
+  if(curTab==='monthly')renderMonthly();
+  else if(curTab==='package')renderPackage();
+  else if(curTab==='weekly')renderWeekly();
+  else if(curTab==='manager')renderManager();
+}
+render();
+}
+
+(function(){
+  try{
+    const raw = sessionStorage.getItem('__dash_data');
+    if(!raw){
+      document.getElementById('__no_data').style.display='block';
+      // 대시보드 컨텐츠는 숨김
+      document.querySelectorAll('.header,.controls,.content').forEach(el=>el.style.display='none');
+      return;
+    }
+    DATA = JSON.parse(raw);
+    _runApp();
+  }catch(e){
+    console.error(e);
+    document.getElementById('__no_data').style.display='block';
+    document.querySelectorAll('.header,.controls,.content').forEach(el=>el.style.display='none');
+    const nd = document.getElementById('__no_data');
+    nd.innerHTML += '<p style="color:#dc2626;margin-top:14px;font-size:12px">오류: '+(e&&e.message||e)+'</p>';
+  }
+})();
+</script>
+</body>
+</html>
