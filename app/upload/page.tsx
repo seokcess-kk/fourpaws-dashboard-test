@@ -6,7 +6,7 @@ import { transformToDashboardData } from "@/lib/transform";
 
 type Step = "idle" | "parsing" | "transforming" | "done" | "error";
 
-export default function Home() {
+export default function UploadPage() {
   const [step, setStep] = useState<Step>("idle");
   const [message, setMessage] = useState<string>("");
   const [stats, setStats] = useState<{ tx: number; line: number; cust: number } | null>(null);
@@ -85,10 +85,13 @@ export default function Home() {
 
   return (
     <main style={{ maxWidth: 760, margin: "0 auto", padding: "40px 24px" }}>
+      <a href="/" style={{ display: "inline-block", marginBottom: 14, color: "#3b82f6", fontSize: 13, textDecoration: "none", fontWeight: 500 }}>
+        ← 대시보드로 돌아가기
+      </a>
       <div style={{ background: "linear-gradient(135deg,#2c3e50 0%,#4a6688 100%)", color: "#fff", padding: "24px 28px", borderRadius: 12, marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22 }}>📊 장례 매출 대시보드</h1>
+        <h1 style={{ margin: 0, fontSize: 22 }}>📂 엑셀 업로드</h1>
         <p style={{ margin: "6px 0 0", fontSize: 13, opacity: 0.9 }}>
-          엑셀 파일을 업로드하면 자동으로 집계되어 대시보드가 렌더링됩니다.
+          엑셀 파일을 업로드하면 자동으로 집계되어 대시보드가 렌더링됩니다. 업로드한 데이터는 데모 데이터를 대체합니다.
         </p>
       </div>
 

@@ -1,22 +1,27 @@
 # 장례 매출 대시보드 (웹앱)
 
-Next.js + Chart.js 기반 대시보드. 엑셀(.xlsx) 파일을 업로드하면 브라우저에서 자동 집계되어 대시보드가 렌더링됩니다.
+Next.js + Chart.js 기반 대시보드. 기본 진입 시 **데모 데이터**가 즉시 보이며, `/upload`에서 엑셀(.xlsx)을 업로드해 자신의 데이터로 교체할 수 있습니다.
 
 ## 구조
 
 ```
 app/
   layout.tsx          # 루트 레이아웃
-  page.tsx            # 엑셀 업로드 페이지 (/)
+  upload/page.tsx     # 엑셀 업로드 페이지 (/upload)
 public/
-  dashboard.html      # 대시보드 정적 페이지 (/dashboard.html) — 기존 sample HTML 이식
+  dashboard.html      # 대시보드 정적 페이지 (rewrite 통해 / 에 노출)
+  sample-data.json    # 데모 데이터 (sessionStorage 비어있을 때 fetch)
 lib/
   schema.ts           # DATA 타입 + 엑셀 컬럼 타입
   transform.ts        # 엑셀 raw → DATA 변환기
 EXCEL_SPEC.md         # 엑셀 시트/컬럼 명세
 ```
 
-데이터 흐름: `/` 에서 엑셀 업로드 → `xlsx`로 파싱 → `transformToDashboardData()`로 집계 → `sessionStorage`에 저장 → `/dashboard.html`로 이동 → 기존 1300+ 줄 렌더링 JS 실행.
+라우팅:
+- `/` → `/dashboard.html` (rewrite). sessionStorage가 비어있으면 `sample-data.json`을 자동 fetch해 데모 모드로 표시.
+- `/upload` → 엑셀 업로드 화면. 업로드 후 `xlsx` 파싱 → `transformToDashboardData()` 집계 → `sessionStorage`에 저장 → `/`로 이동하면 업로드 데이터로 표시.
+
+데모/업로드 모드는 우상단 배지로 구분되며, "데모로 초기화" 버튼으로 sessionStorage를 비울 수 있습니다.
 
 ## 로컬 실행
 

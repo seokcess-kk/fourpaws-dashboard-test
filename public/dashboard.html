@@ -143,15 +143,32 @@
   .heat-neg4{background:#ef4444;color:#fff;font-weight:600}
   .heat-neg5{background:#b91c1c;color:#fff;font-weight:700}
   .insight-box{background:#f8fafc;border-left:4px solid #3b82f6;padding:10px 14px;font-size:12px;color:#1f2937;line-height:1.6;border-radius:0 6px 6px 0;margin-bottom:14px}
-  .nav-bar{background:#fff;padding:8px 16px;border-bottom:1px solid #e1e4e8;display:flex;align-items:center;gap:10px;font-size:12px}
-  .nav-bar a{color:#3b82f6;text-decoration:none;font-weight:500}
-  .nav-bar a:hover{text-decoration:underline}
+  .nav-bar{background:#fff;padding:8px 16px;border-bottom:1px solid #e1e4e8;display:flex;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap}
+  .nav-bar a,.nav-bar button{color:#3b82f6;text-decoration:none;font-weight:500;background:none;border:none;cursor:pointer;font-size:12px;padding:0;font-family:inherit}
+  .nav-bar a:hover,.nav-bar button:hover{text-decoration:underline}
+  .nav-bar .mode-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-weight:600;font-size:11px;letter-spacing:0.3px}
+  .nav-bar .mode-badge.demo{background:#fef3c7;color:#92400e}
+  .nav-bar .mode-badge.live{background:#dcfce7;color:#166534}
+  .nav-bar .spacer{flex:1}
+  .nav-bar .upload-btn{background:#3b82f6;color:#fff !important;padding:6px 14px;border-radius:6px;font-weight:600;text-decoration:none !important}
+  .nav-bar .upload-btn:hover{background:#2563eb;text-decoration:none !important}
   .no-data{padding:40px;text-align:center;color:#666}
   .no-data a{display:inline-block;margin-top:12px;padding:10px 20px;background:#3b82f6;color:#fff;text-decoration:none;border-radius:6px;font-weight:600}
+  #__loading{position:fixed;inset:0;background:linear-gradient(135deg,#2c3e50,#4a6688);display:flex;align-items:center;justify-content:center;z-index:9999;color:#fff;font-size:14px}
+  #__loading .box{background:rgba(255,255,255,0.1);padding:24px 36px;border-radius:10px;text-align:center}
+  #__loading .spinner{display:inline-block;width:28px;height:28px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:10px}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div class="nav-bar"><a href="/">← 엑셀 업로드 화면으로</a><span style="color:#888">|</span><a href="javascript:void(0)" onclick="if(confirm('현재 데이터를 초기화하고 업로드 화면으로 돌아갑니다.')){sessionStorage.removeItem('__dash_data');location.href='/';}">데이터 초기화</a></div>
+<div id="__loading"><div class="box"><div class="spinner"></div><div>데모 데이터 로드 중...</div></div></div>
+<div class="nav-bar">
+  <span id="__modeBadge" class="mode-badge demo">🎬 데모 모드</span>
+  <span style="color:#666;font-size:11px" id="__modeNote">샘플 데이터로 보고 있습니다</span>
+  <span class="spacer"></span>
+  <a href="/upload" class="upload-btn">📂 엑셀 업로드</a>
+  <button id="__resetBtn" style="display:none" onclick="if(confirm('업로드한 데이터를 지우고 데모 데이터로 돌아갑니다.')){sessionStorage.removeItem('__dash_data');location.reload();}">데모로 초기화</button>
+</div>
 <div class="header">
   <h1>장례 카테고리별 매출 대시보드 V4</h1>
   <div class="meta" id="metaInfo"></div>
@@ -1699,19 +1716,33 @@ function render(){
 render();
 }
 
-(function(){
+(async function(){
+  const loading = document.getElementById('__loading');
+  const badge = document.getElementById('__modeBadge');
+  const note = document.getElementById('__modeNote');
+  const resetBtn = document.getElementById('__resetBtn');
   try{
     const raw = sessionStorage.getItem('__dash_data');
-    if(!raw){
-      document.getElementById('__no_data').style.display='block';
-      // 대시보드 컨텐츠는 숨김
-      document.querySelectorAll('.header,.controls,.content').forEach(el=>el.style.display='none');
+    if(raw){
+      DATA = JSON.parse(raw);
+      badge.textContent='✅ 업로드 데이터';
+      badge.className='mode-badge live';
+      note.textContent='엑셀 업로드 결과를 보고 있습니다';
+      resetBtn.style.display='inline-block';
+      loading.style.display='none';
+      _runApp();
       return;
     }
-    DATA = JSON.parse(raw);
+    // sessionStorage 비어있으면 정적 샘플 fetch
+    loading.querySelector('div:last-child').textContent='데모 데이터 로드 중...';
+    const res = await fetch('/sample-data.json',{cache:'force-cache'});
+    if(!res.ok) throw new Error('샘플 데이터 응답 오류: '+res.status);
+    DATA = await res.json();
+    loading.style.display='none';
     _runApp();
   }catch(e){
     console.error(e);
+    loading.style.display='none';
     document.getElementById('__no_data').style.display='block';
     document.querySelectorAll('.header,.controls,.content').forEach(el=>el.style.display='none');
     const nd = document.getElementById('__no_data');
