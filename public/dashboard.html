@@ -716,6 +716,7 @@ function renderWeekly(){
 }
 
 function renderManager(){
+  if(!DATA.manager_aov){ _ensureManagerData().then(()=>renderManager()); return; }
   const m=DATA.manager_aov,d=m.by_location[curLoc];
   if(!d||!d.managers||d.managers.length===0){
     destroy('mgr_aov');
@@ -1707,11 +1708,33 @@ let curMonth = null;
   };
 })();
 
-function render(){
+let _managerLoaded = !window._lazyManager;
+let _managerLoadPromise = null;
+async function _ensureManagerData(){
+  if (_managerLoaded) return;
+  if (_managerLoadPromise) return _managerLoadPromise;
+  const panel = document.getElementById('panel-manager');
+  const overlay = document.createElement('div');
+  overlay.id = '__mgr_loading';
+  overlay.style.cssText = 'padding:24px;text-align:center;color:#666;background:#fff;border-radius:8px;border:1px dashed #cbd5e0;margin:0 0 14px';
+  overlay.innerHTML = '<div style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle"></div> <span style="vertical-align:middle;margin-left:10px">매니저 데이터 로드 중... (약 285KB)</span>';
+  if (panel) panel.insertBefore(overlay, panel.firstChild);
+  _managerLoadPromise = fetch('/manager-data.json', {cache:'force-cache'})
+    .then(r => { if(!r.ok) throw new Error('manager-data.json HTTP '+r.status); return r.json(); })
+    .then(md => { Object.assign(DATA, md); _managerLoaded = true; })
+    .catch(e => { overlay.innerHTML = '<span style="color:#dc2626">매니저 데이터 로드 실패: '+(e&&e.message||e)+'</span>'; throw e; })
+    .finally(() => { const o=document.getElementById('__mgr_loading'); if(o&&_managerLoaded) o.remove(); });
+  return _managerLoadPromise;
+}
+
+async function render(){
   if(curTab==='monthly')renderMonthly();
   else if(curTab==='package')renderPackage();
   else if(curTab==='weekly')renderWeekly();
-  else if(curTab==='manager')renderManager();
+  else if(curTab==='manager'){
+    try { await _ensureManagerData(); } catch(e){ return; }
+    renderManager();
+  }
 }
 render();
 }
@@ -1724,6 +1747,8 @@ render();
   try{
     const raw = sessionStorage.getItem('__dash_data');
     if(raw){
+      // 업로드 데이터는 매니저 포함 전체가 sessionStorage에 있음 → lazy 불필요
+      window._lazyManager = false;
       DATA = JSON.parse(raw);
       badge.textContent='✅ 업로드 데이터';
       badge.className='mode-badge live';
@@ -1733,9 +1758,10 @@ render();
       _runApp();
       return;
     }
-    // sessionStorage 비어있으면 정적 샘플 fetch
-    loading.querySelector('div:last-child').textContent='데모 데이터 로드 중...';
-    const res = await fetch('/sample-data.json',{cache:'force-cache'});
+    // 데모 모드: core만 먼저, manager는 탭 클릭 시 lazy fetch
+    window._lazyManager = true;
+    loading.querySelector('div:last-child').textContent='데모 데이터 로드 중... (약 40KB)';
+    const res = await fetch('/core-data.json',{cache:'force-cache'});
     if(!res.ok) throw new Error('샘플 데이터 응답 오류: '+res.status);
     DATA = await res.json();
     loading.style.display='none';
